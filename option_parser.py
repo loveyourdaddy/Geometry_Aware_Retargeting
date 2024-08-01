@@ -11,7 +11,7 @@ def get_parser():
     parser.add_argument('--proj_name', type=str, default='')
 
     # test 
-    parser.add_argument('--test_proj', type=str, default='240424_FK100GtDist10_scaled')
+    parser.add_argument('--test_proj', type=str, default='')
     parser.add_argument('--test_epoch', type=int, default=8000) 
     
     # character
@@ -48,24 +48,27 @@ def get_parser():
     parser.add_argument('--motion1', type=str, default="")
     parser.add_argument('--SMPLx_scaled', type=str_to_bool, default=False)
     
-    # base loss 
+    """ lambda """
+    # base loss
     parser.add_argument('--lambda_rec', type=float, default=1.0)
     parser.add_argument('--lambda_root', type=float, default=100.0)
+    # fk 
     parser.add_argument('--loss_fk', type=str_to_bool, default=True)
     parser.add_argument('--lambda_fk', type=float, default=100.0)
-    # smooth
-    parser.add_argument('--loss_smooth', type=str_to_bool, default=False)
-    parser.add_argument('--lambda_smooth', type=float, default=10.0)
-    # skel loss
-    parser.add_argument('--loss_skel', type=str_to_bool, default=False)
-    parser.add_argument('--lambda_skel', type=float, default=100.0)
-    parser.add_argument('--skel_gt', type=str_to_bool, default=True)
-    parser.add_argument('--skel_dist', type=str_to_bool, default=True)
     # anchor loss
     parser.add_argument('--loss_anchor', type=str_to_bool, default=True)
     parser.add_argument('--lambda_anchor', type=float, default=10)
     parser.add_argument('--anchor_gt', type=str_to_bool, default=True)
     parser.add_argument('--anchor_dist', type=str_to_bool, default=True)
+    
+    # skel loss
+    parser.add_argument('--loss_skel', type=str_to_bool, default=False)
+    parser.add_argument('--lambda_skel', type=float, default=100.0)
+    parser.add_argument('--skel_gt', type=str_to_bool, default=True)
+    parser.add_argument('--skel_dist', type=str_to_bool, default=True)
+    # smooth
+    parser.add_argument('--loss_smooth', type=str_to_bool, default=False)
+    parser.add_argument('--lambda_smooth', type=float, default=10.0)
     # reg
     parser.add_argument('--loss_reg', type=str_to_bool, default=False)
     parser.add_argument('--lambda_reg', type=float, default=0.01)
@@ -125,7 +128,7 @@ def get_parser():
     parser.add_argument('--left_hand_joints', type=list, default=[14, 15, 16, 17])
     parser.add_argument('--right_hand_joints', type=list,default=[18, 19, 20, 21])
 
-    ''' debug & render '''
+    ''' debug & render ''' # TODO: go to render class 
     parser.add_argument('--source_pos', type=float, default=-2)
     parser.add_argument('--joint_pos',  type=float, default= 2)
     parser.add_argument('--geo_pos',    type=float, default= 6)

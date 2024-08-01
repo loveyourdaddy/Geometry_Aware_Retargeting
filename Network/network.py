@@ -302,7 +302,7 @@ class Network():
                             sum_root_loss0 += root_loss0.item()
                             sum_root_loss1 += root_loss1.item()
                             
-                            # rot reshape 
+                            # rot reshape
                             out_R0 = out_R0.reshape(b_size, len_frame, 22, 6)
                             out_R1 = out_R1.reshape(b_size, len_frame, 22, 6)
                             if self.args.rotation_rep == 'quat':
