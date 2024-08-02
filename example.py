@@ -35,7 +35,7 @@ motion_name = "back_lift001_S1"
 for character_name0 in names:
     source0_character, motion0 = get_a_character(args, character_name0, template)
     # source0_character, motion0, geo0 = get_a_character(args, character_name0, template)
-    motion0 = get_motions_from_list(character_name0, [motion_name])[0]
+    motion0 = get_interaction_motions_from_list(character_name0, [motion_name])[0]
     # motion0 = refine_motion(motion0, template)
     
     # source0_character.set_source_skeleton(motion0.skeleton, MIXAMO_BVH_TO_FBX) # character도 같이 입력으로 받아, skeleton을 return해주기

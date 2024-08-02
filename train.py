@@ -34,6 +34,10 @@ def main(args):
     
     # set train character
     train_mesh_char_list = args.target_characters
+    dataset = Dataset(args)
+    dataset.load_motion_and_geo_data(train_mesh_char_list)
+    
+    # print
     if args.loss_fk:
         print("> lambda_fk:", args.lambda_fk)
     if args.loss_anchor:
@@ -41,10 +45,6 @@ def main(args):
     print("> proj_name: ", args.proj_name)
     print("> train character: ", train_mesh_char_list)
 
-    # dataset
-    dataset = Dataset(args)
-    dataset.load_motion_and_geo_data(train_mesh_char_list)
-    
     # train
     net = Network(args)
     net.spatio_temp_net.train()

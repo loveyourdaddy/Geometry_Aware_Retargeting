@@ -74,8 +74,8 @@ def main(args):
             get_skeleton_finger_idx(targ0_Tpose, targ1_Tpose)
     
     # load motion
-    source_motion0 = get_motions_from_list(source0_name, source0_motion_names)[0]
-    source_motion1 = get_motions_from_list(source1_name, source1_motion_names)[0]
+    source_motion0 = get_interaction_motions_from_list(source0_name, source0_motion_names)[0]
+    source_motion1 = get_interaction_motions_from_list(source1_name, source1_motion_names)[0]
     
     # translate
     source_motion0, source_motion1 = motion_translate(source_motion0, source_motion1)

@@ -153,6 +153,15 @@ class Network():
             self.names = dataset.names
             self.parents = dataset.parents
 
+        one_side_train = True
+        if one_side_train:
+            # import pdb; pdb.set_trace() # retargeted gt의 shape을 봐야 
+            gt0 = gt0[:, :1]
+            gt1 = gt1[:, :1]
+            gt_pos0 = gt_pos0[:, :1]
+            gt_pos1 = gt_pos1[:, :1]
+            
+
         # info
         num_motion, len_frame, _ = input0.shape
         num_joint = self.args.num_joint
@@ -172,16 +181,16 @@ class Network():
             # target
             targ_info0, targ_info1 = \
                 self.get_char_length_info(target_offsets0, target_offsets1,
-                                target_aabb_max_min0, target_aabb_max_min1)
+                                          target_aabb_max_min0, target_aabb_max_min1)
             # valid 
             # source 
             valid_sour_info0, valid_sour_info1 = \
                 self.get_char_length_info(valid_source_offsets0, valid_source_offsets1,
-                                            valid_source_aabb_max_min0, valid_source_aabb_max_min1)
+                                          valid_source_aabb_max_min0, valid_source_aabb_max_min1)
             # target
             valid_targ_info0, valid_targ_info1 = \
                 self.get_char_length_info(valid_target_offsets0, valid_target_offsets1,
-                                            valid_target_aabb_max_min0, valid_target_aabb_max_min1)
+                                          valid_target_aabb_max_min0, valid_target_aabb_max_min1)
             # validation index 
             valid_rid = 0
             valid_cid = 0
@@ -198,9 +207,10 @@ class Network():
         anchor_vids_nor = anchor_vids[0]
         anchor_vpos_nor = anchor_vpos[0]
         
-        # train
+        # load 
         if self.args.begin_epoch != 0:
             self.load(self.args.path, self.args.begin_epoch)
+        # train
         for epoch in range(self.args.begin_epoch, self.args.end_epoch):
             sum_rec_loss0 = 0
             sum_rec_loss1 = 0
@@ -264,6 +274,7 @@ class Network():
                             sour_rest1 = sour_rest1.reshape(b_size, len_frame, -1)
                             targ_rest0 = targ_rest0.reshape(b_size, len_frame, -1)
                             targ_rest1 = targ_rest1.reshape(b_size, len_frame, -1)
+                            # forward 
                             delta0, delta1 = \
                                 self.spatio_temp_net(input_b0[..., :-3], input_b1[..., :-3],
                                                     input_b0[..., -3:], input_b1[..., -3:],
@@ -287,7 +298,6 @@ class Network():
                             # offset 
                             tar_offset0 = target_offsets0[cid, rid, sid].reshape(22, 3)
                             tar_offset1 = target_offsets1[cid, rid, sid].reshape(22, 3)
-
 
                             """ loss"""
                             # base loss
