@@ -47,6 +47,8 @@ def get_parser():
     parser.add_argument('--motion0', type=str, default="")
     parser.add_argument('--motion1', type=str, default="")
     parser.add_argument('--SMPLx_scaled', type=str_to_bool, default=False)
+    parser.add_argument('--train_one_char_change', type=str_to_bool, default=False)
+    
     
     """ lambda """
     # base loss

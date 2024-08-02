@@ -153,8 +153,7 @@ class Network():
             self.names = dataset.names
             self.parents = dataset.parents
 
-        one_side_train = True
-        if one_side_train:
+        if self.args.train_one_char_change:
             # import pdb; pdb.set_trace() # retargeted gt의 shape을 봐야 
             gt0 = gt0[:, :1]
             gt1 = gt1[:, :1]
