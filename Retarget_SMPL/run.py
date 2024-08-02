@@ -3,8 +3,8 @@ import sys
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 import time
 import datetime
-from datasets.motion_dataset import *
-from datasets.character_dataset import *
+from datasets.motion_functions import *
+from datasets.character_functions import *
 import option_parser
 from option_motion import RD_bvh, start_frame_dict, end_frame_dict
 from retarget_smpl import *

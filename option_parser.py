@@ -11,7 +11,7 @@ def get_parser():
     parser.add_argument('--proj_name', type=str, default='')
 
     # test 
-    parser.add_argument('--test_proj', type=str, default='')
+    parser.add_argument('--test_proj', type=str, default='240424_FK100GtDist10_scaled')
     parser.add_argument('--test_epoch', type=int, default=8000) 
     
     # character

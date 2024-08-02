@@ -4,41 +4,13 @@ sys.path.append('..')
 from pymovis.vis.appmanager import AppManager
 from pymovis.vis.app import MyApp
 from Network.network import Network
-from datasets.character_dataset import *
+from datasets.character_functions import *
+from datasets.motion_functions import *
 from datasets.motion_dataset import *
 import option_parser
 from option_motion import example_bvh
 from Retarget_SMPL.relationship_descriptor import resolve_ground_pene, get_rootP_localR_globalP_from_motion
 
-
-def motion_translate(motion0, motion1):
-    translate0 = np.array([0.0, 0, 0.0])
-    translate1 = np.array([0.0, 0, 0.0])
-    if motion0.name == "move_03_03_male_30fps":
-        translate1 = np.array([+0.1, 0, -0.1])
-        
-    elif motion0.name == "one_leg_back_stretch_S1":
-        translate1 = np.array([0, 0, +0.1])
-    
-    # elif motion0.name=="greeting002_S1":
-    #     translate1 = np.array([0, 0.05, 0])
-    #     for pose in motion0.poses:
-    #         pose.root_p[1] += 0.05
-    #         pose.update()
-    #     for pose in motion1.poses:
-    #         pose.root_p[1] += 0.05
-    #         pose.update()
-    else:
-        return motion0, motion1
-        
-    for pose in motion0.poses:
-        pose.root_p += translate0
-        pose.update()
-    for pose in motion1.poses:
-        pose.root_p += translate1
-        pose.update()
-        
-    return motion0, motion1
 
 def main(args):
     app_manager = AppManager()
@@ -76,9 +48,6 @@ def main(args):
     # load motion
     source_motion0 = get_interaction_motions_from_list(source0_name, source0_motion_names)[0]
     source_motion1 = get_interaction_motions_from_list(source1_name, source1_motion_names)[0]
-    
-    # translate
-    source_motion0, source_motion1 = motion_translate(source_motion0, source_motion1)
     
     # dataset
     dataset = Dataset(args)

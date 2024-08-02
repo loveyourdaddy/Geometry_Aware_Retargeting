@@ -2,7 +2,8 @@ import sys
 sys.path.append('..')
 
 from Network.network import Network
-from datasets.character_dataset import *
+from datasets.character_functions import *
+from datasets.motion_functions import *
 from datasets.motion_dataset import *
 import option_parser
 import wandb

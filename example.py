@@ -3,8 +3,8 @@ sys.path.append('..')
 
 from pymovis.vis.appmanager import AppManager
 from pymovis.vis.app import MyApp
-from datasets.character_dataset import *
-from datasets.motion_dataset import *
+from datasets.character_functions import *
+from datasets.motion_functions import *
 import option_parser
 from etc.etc import *
 from pymovis.motion.ops.torchmotion import *

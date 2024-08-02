@@ -167,7 +167,7 @@ if __name__ == "__main__":
     
     # scale
     if small:
-        from datasets.character_dataset import get_scale
+        from datasets.character_functions import get_scale
         scales = get_scale()
         index = 0 # args.SMPLx_scale_index 
         scale = scales[index]

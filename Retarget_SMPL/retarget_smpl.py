@@ -54,8 +54,6 @@ def retarget_smpl(args,
 
 """ etc """
 # load a edited motion
-
-
 def load_full_edited_npy_motion(args, character, motion_name):
     # A, 0: ptn.  B, 1: deform
     deform_name = character.meshes[0].mesh_gl.name
@@ -188,7 +186,7 @@ if __name__ == '__main__':
     args.device = "cpu" # "cuda"
 
     """ character, moiton """
-    from datasets.character_dataset import get_a_smpl_character
+    from datasets.character_functions import get_a_smpl_character
     # ptn
     ptn_name = "SMPLx"
     character_ptn, _, geometry_nor = get_a_smpl_character(args, ptn_name)
@@ -199,7 +197,7 @@ if __name__ == '__main__':
     character_dfm, Tpose_dfm, geometry_dfm = get_a_smpl_character(args, deformed_name)
 
     # motion name
-    from datasets.motion_dataset import get_interaction_motions_from_list
+    from datasets.motion_functions import get_interaction_motions_from_list
     motion_name0 = list(example_bvh.keys())[0]
     motion_name1 = list(example_bvh.values())[0]
     motion0 = get_interaction_motions_from_list("SMPLx", [motion_name0])[0]
@@ -234,11 +232,11 @@ if __name__ == '__main__':
     for i in range(len(motion_dfm.poses)):
         motion_dfm.poses[i].root_p *= root_scale
     
-    # scale 
+    # scale
     if deformed_name == "SMPLx":
-        scales = np.load("scales.npy")
+        scales = np.load("./scale_values/scales.npy")
     else:
-        scales = np.load("scales_fat.npy")
+        scales = np.load("./scale_values/scales_fat.npy")
     
     leg_idx  = index
     body_idx = index

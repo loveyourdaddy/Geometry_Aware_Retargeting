@@ -103,7 +103,7 @@ class Network():
 
     def train_(self, dataset):
         import wandb
-        from datasets.motion_dataset import get_displacement_map, get_distance_map
+        from datasets.motion_functions import get_displacement_map, get_distance_map
         print("train start")
 
         if True:
@@ -154,7 +154,6 @@ class Network():
             self.parents = dataset.parents
 
         if self.args.train_one_char_change:
-            # import pdb; pdb.set_trace() # retargeted gt의 shape을 봐야 
             gt0 = gt0[:, :1]
             gt1 = gt1[:, :1]
             gt_pos0 = gt_pos0[:, :1]

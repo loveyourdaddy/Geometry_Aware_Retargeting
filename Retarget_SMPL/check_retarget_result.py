@@ -7,8 +7,8 @@ import option_parser
 from option_motion import example_bvh
 from Retarget_SMPL.retarget_smpl import load_edited_npy_motion
 from etc.etc import *
-from datasets.motion_dataset import *
-from datasets.character_dataset import *
+from datasets.motion_functions import *
+from datasets.character_functions import *
 from pymovis.vis.app import MyApp
 from pymovis.vis.appmanager import AppManager
 
