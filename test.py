@@ -20,11 +20,6 @@ def main(args):
     args.is_train = False
     args.save_norm_info = False
 
-    # SMPLx Mixamo
-    # args.test_type = "Mixamo"  # Mixamo
-    # normal small fat
-    # args.test_char = "fat"
-    
     # motion 
     if args.motion0 == '':
         source0_motion_names = list(example_bvh.keys())
@@ -35,6 +30,7 @@ def main(args):
     print("> proj_name: ", args.test_proj)
     print("> character: ", args.test_type, args.test_char)
     print("> motion: ", source0_motion_names[0])
+
 
     """ load data """
     # load character 
@@ -50,16 +46,20 @@ def main(args):
     source_motion0 = get_interaction_motions_from_list(source0_name, source0_motion_names)[0]
     source_motion1 = get_interaction_motions_from_list(source1_name, source1_motion_names)[0]
     
+    # translate input motion
+    source_motion0, source_motion1 = input_motion_translate(args, source_motion0, source_motion1)
+    
     # dataset
     dataset = Dataset(args)
     dataset.get_char_data(source0_character, source1_character, targ0_character, targ1_character)
+    
     # motion
     dataset.get_input_motion(source_motion0, source_motion1)
     if args.data_normalized:
         dataset.load_norm_info()
         dataset.normalize()
 
-    # swap rolearget character의 set skeleton이 되어야함
+    # swap role: target character의 set skeleton이 되어야함
     if args.role_change:
         target1_character, target0_character = targ0_character, targ1_character
         # offset 
@@ -202,14 +202,6 @@ def main(args):
         # scaled_weights = (filtered_weights - min_val) / (max_val - min_val)
         args.debug_weight0 = scaled_weights
     
-    
-    # foot contact 
-    foot_contact0 = detect_foot_contact(args, source_motion0)
-    foot_contact_index = np.where(foot_contact0)
-    for i in range(len(foot_contact_index[0])):
-        f = foot_contact_index[0][i]
-        j = foot_contact_index[1][i]
-        args.debug_points0.append(source_motion0.poses[f].global_p[j])
 
     """ option """
     # save 
@@ -227,7 +219,8 @@ def main(args):
         np.save(save_path+name+'jit_output_R0', jit_output_R0.detach().numpy())
         np.save(save_path+name+'jit_output_R1', jit_output_R1.detach().numpy())
         # print('saved: ' + save_path+name)
-    else: # render
+    # render
+    else: 
         from etc.etc import render_result
         characters, motions = \
             render_result(args, 
@@ -235,6 +228,30 @@ def main(args):
                         source_motion0, source_motion1, output_motion0, output_motion1) 
         app = MyApp(characters, motions, args, net)
         app_manager.run(app)
+
+def input_motion_translate(args, motion0, motion1):
+    translate0 = np.array([0.0, 0, 0.0])
+    translate1 = np.array([0.0, 0, 0.0])
+    
+    if motion0.name == "move_03_03_female_30fps":
+        translate1 = np.array([+0.1, 0, -0.1])
+        
+    elif args.test_type=="Mixamo" and motion0.name == "one_leg_back_stretch_S1":
+        translate1 = np.array([0, 0, +0.1])
+    
+    else:
+        return motion0, motion1
+        
+    # update motion
+    for pose in motion0.poses:
+        pose.root_p += translate0
+        pose.update()
+    for pose in motion1.poses:
+        pose.root_p += translate1
+        pose.update()
+        
+    return motion0, motion1
+
 
 if __name__ == "__main__":
     args = option_parser.get_args()

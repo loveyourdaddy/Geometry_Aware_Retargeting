@@ -11,8 +11,8 @@ def get_parser():
     parser.add_argument('--proj_name', type=str, default='')
 
     # test 
-    parser.add_argument('--test_proj', type=str, default='240424_FK100GtDist10_scaled')
-    parser.add_argument('--test_epoch', type=int, default=8000) 
+    parser.add_argument('--test_proj',  type=str, default='') # 240424_FK100GtDist10_scaled
+    parser.add_argument('--test_epoch', type=int, default=0) # 8000
     
     # character
     parser.add_argument('--test_type', type=str, default="Mixamo") # SMPLx Mixamo
@@ -68,7 +68,6 @@ def get_parser():
     # foot contact loss
     parser.add_argument('--loss_foot_contact', type=str_to_bool, default=True)
     parser.add_argument('--lambda_foot_contact', type=float, default=1.0)
-    
     
     # skel loss
     parser.add_argument('--loss_skel', type=str_to_bool, default=False)
