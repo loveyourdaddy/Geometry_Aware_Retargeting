@@ -22,6 +22,7 @@ def get_parser():
     parser.add_argument('--save', type=str_to_bool, default=False)
     parser.add_argument('--debug', type=str_to_bool, default=False)
     
+    
     """ compare """
     parser.add_argument('--test_proj_woAnc', type=str, default='240424_FK100_rec_scaled') 
     parser.add_argument('--woAnc_epoch', type=int, default=7000)
@@ -30,24 +31,26 @@ def get_parser():
     parser.add_argument('--compare_proj_name', type=str, default='240424_FK100_rec_scaled') 
     parser.add_argument('--compare_epoch', type=int, default=7000)
     
+    
     """ setting """
     parser.add_argument('--load_from_saved', type=str, default='')
     parser.add_argument('--path', type=str, default='')
     parser.add_argument('--device', type=str, default='cuda')  # cpu cuda
     parser.add_argument('--save_iter_epoch', type=int, default=500)  # etc
     
+    
     """ network """
     # structure 
-    parser.add_argument('--char_info', type=str, default="length")
     parser.add_argument('--weight_sharing', type=str_to_bool, default=True)
     parser.add_argument('--temporal_attn',  type=str_to_bool, default=False)
+    parser.add_argument('--char_info', type=str, default="length")
     parser.add_argument('--normalize_char_info', type=str_to_bool, default=False)
     parser.add_argument('--data_normalized', type=str_to_bool, default=False)
     parser.add_argument('--target_characters', type=arg_as_list, default=["SMPLx", "SMPLx_fat"])
     parser.add_argument('--motion0', type=str, default="")
     parser.add_argument('--motion1', type=str, default="")
     parser.add_argument('--SMPLx_scaled', type=str_to_bool, default=False)
-    parser.add_argument('--train_one_char_change', type=str_to_bool, default=False)
+    parser.add_argument('--train_one_chararacter_only', type=str_to_bool, default=False)
     
     
     """ lambda """
@@ -62,6 +65,10 @@ def get_parser():
     parser.add_argument('--lambda_anchor', type=float, default=10)
     parser.add_argument('--anchor_gt', type=str_to_bool, default=True)
     parser.add_argument('--anchor_dist', type=str_to_bool, default=True)
+    # foot contact loss
+    parser.add_argument('--loss_foot_contact', type=str_to_bool, default=True)
+    parser.add_argument('--lambda_foot_contact', type=float, default=1.0)
+    
     
     # skel loss
     parser.add_argument('--loss_skel', type=str_to_bool, default=False)
@@ -82,10 +89,11 @@ def get_parser():
     parser.add_argument('--anchor_exp_k', type=float, default=3.0)
     parser.add_argument('--num_heads', type=int, default=4) # 4
 
-    
+
     """ data preprocess """
     parser.add_argument('--geo_preprocess', type=str_to_bool, default=False)
     parser.add_argument('--bvh_preprocess', type=str_to_bool, default=False)
+
 
     """ dataset representation """
     parser.add_argument('--rotation_rep', type=str, default='R6')
@@ -97,6 +105,7 @@ def get_parser():
     parser.add_argument('--sepearte_train_data', type=str_to_bool, default=False)
     parser.add_argument('--train_data_ratio', type=float, default=0.9)
     
+    
     """ RD """
     parser.add_argument('--update_by_clampping_range', type=str_to_bool, default=True)
     parser.add_argument('--interaction_start_frame', type=int, default=-1)
@@ -104,7 +113,7 @@ def get_parser():
     parser.add_argument('--num_joint', type=int, default=22)
     parser.add_argument('--num_anchor_perjoint', type=int, default=4)
     parser.add_argument('--pene_ths_before_ee', type=float, default=0.08) # 0.08
-    parser.add_argument('--pene_ths', type=float, default=0.03) #0.02
+    parser.add_argument('--pene_ths', type=float, default=0.05) #0.02
     
     # part
     parser.add_argument('--root_joint', type=list, default=[0])
@@ -124,11 +133,14 @@ def get_parser():
                         default=[0, 9, 10, 11, 12, 13])
     parser.add_argument('--hand_joints', type=list,
                         default=[14, 15, 16, 17, 18, 19, 20, 21])
+    parser.add_argument('--foot_index', type=list,
+                        default=[4, 8])
     
     parser.add_argument('--left_leg_joints', type=list,  default=[1, 2, 3, 4])
     parser.add_argument('--right_leg_joints', type=list, default=[5, 6, 7, 8])
     parser.add_argument('--left_hand_joints', type=list, default=[14, 15, 16, 17])
     parser.add_argument('--right_hand_joints', type=list,default=[18, 19, 20, 21])
+
 
     ''' debug & render ''' # TODO: go to render class 
     parser.add_argument('--source_pos', type=float, default=-2)
@@ -195,25 +207,26 @@ tipbone 22 23
 """
 
 bones = [
-"Hips", 
-"LeftUpLeg", 
-"LeftLeg", 
-"LeftFoot", 
-"LeftToeBase", 
-"RightUpLeg", 
-"RightLeg", 
-"RightFoot", 
-"RightToeBase", 
-"Spine", 
-"Spine1", 
-"Spine2", 
-"Neck", 
-"Head", 
-"LeftShoulder", 
-"LeftArm", 
-"LeftForeArm", 
-"LeftHand", 
-"RightShoulder", 
-"RightArm", 
-"RightForeArm", 
-"RightHand",] 
+    "Hips", 
+    "LeftUpLeg", 
+    "LeftLeg", 
+    "LeftFoot", 
+    "LeftToeBase", 
+    "RightUpLeg", 
+    "RightLeg", 
+    "RightFoot", 
+    "RightToeBase", 
+    "Spine", 
+    "Spine1", 
+    "Spine2", 
+    "Neck", 
+    "Head", 
+    "LeftShoulder", 
+    "LeftArm", 
+    "LeftForeArm", 
+    "LeftHand", 
+    "RightShoulder", 
+    "RightArm", 
+    "RightForeArm", 
+    "RightHand",
+]

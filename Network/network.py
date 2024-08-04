@@ -153,7 +153,7 @@ class Network():
             self.names = dataset.names
             self.parents = dataset.parents
 
-        if self.args.train_one_char_change:
+        if self.args.train_one_chararacter_only:
             gt0 = gt0[:, :1]
             gt1 = gt1[:, :1]
             gt_pos0 = gt_pos0[:, :1]
@@ -205,17 +205,26 @@ class Network():
         anchor_vids_nor = anchor_vids[0]
         anchor_vpos_nor = anchor_vpos[0]
         
+        # foot contact detection
+        from detect_foot_contact import detect_foot_contact_from_batched_position
+        foot_contact_label0 = detect_foot_contact_from_batched_position(self.args, input_pos0)
+        foot_contact_label1 = detect_foot_contact_from_batched_position(self.args, input_pos1)
+        
         # load 
         if self.args.begin_epoch != 0:
             self.load(self.args.path, self.args.begin_epoch)
         # train
         for epoch in range(self.args.begin_epoch, self.args.end_epoch):
+            # loss record 
             sum_rec_loss0 = 0
             sum_rec_loss1 = 0
             sum_root_loss0 = 0
             sum_root_loss1 = 0
             sum_fk_loss0 = 0
             sum_fk_loss1 = 0
+            sum_foot_contact_loss0 = 0
+            sum_foot_contact_loss1 = 0
+            
             sum_smooth_loss0 = 0
             sum_smooth_loss1 = 0
             sum_anchor_disp_loss0 = 0
@@ -223,6 +232,7 @@ class Network():
             sum_skel_disp_loss0 = 0
             sum_skel_disp_loss1 = 0
             sum_reg_loss = 0
+            
             for cid in range(num_char):
                 anchor_vids_ = anchor_vids[cid]
                 anchor_vpos_ = anchor_vpos[cid]
@@ -255,12 +265,18 @@ class Network():
                             gt_pos_b0 = gt_pos0[cid, rid, sid, start:end]
                             gt_pos_b1 = gt_pos1[cid, rid, sid, start:end]
                             
+                            # input 
                             input_motion_b0 = input_motion0[start:end]
                             input_motion_b1 = input_motion1[start:end]
                             input_b0 = input0[start:end]
                             input_b1 = input1[start:end]
                             input_pos_b0 = input_pos0[start:end]
                             input_pos_b1 = input_pos1[start:end]
+                            
+                            # foot contact 
+                            foot_contact_label_b0 = foot_contact_label0[start:end]
+                            foot_contact_label_b1 = foot_contact_label1[start:end]
+                            
                             
                             """ feed """
                             # trf
@@ -272,6 +288,7 @@ class Network():
                             sour_rest1 = sour_rest1.reshape(b_size, len_frame, -1)
                             targ_rest0 = targ_rest0.reshape(b_size, len_frame, -1)
                             targ_rest1 = targ_rest1.reshape(b_size, len_frame, -1)
+                            
                             # forward 
                             delta0, delta1 = \
                                 self.spatio_temp_net(input_b0[..., :-3], input_b1[..., :-3],
@@ -281,6 +298,7 @@ class Network():
                                                     targ_rest0, targ_rest1)
                             output_motion0 = input_motion_b0 + delta0
                             output_motion1 = input_motion_b1 + delta1
+
 
                             """ output """
                             # rec 
@@ -296,6 +314,7 @@ class Network():
                             # offset 
                             tar_offset0 = target_offsets0[cid, rid, sid].reshape(22, 3)
                             tar_offset1 = target_offsets1[cid, rid, sid].reshape(22, 3)
+
 
                             """ loss"""
                             # base loss
@@ -332,6 +351,21 @@ class Network():
                                 loss1 += self.args.lambda_fk * fk_loss1
                                 sum_fk_loss0 += fk_loss0.item()
                                 sum_fk_loss1 += fk_loss1.item()
+                            
+                            # foot contact loss
+                            if self.args.loss_foot_contact:
+                                num_foot_contact0 = torch.where(foot_contact_label_b0)[0].shape[0]
+                                num_foot_contact1 = torch.where(foot_contact_label_b1)[0].shape[0]
+                                pene_val = torch.tensor([self.args.pene_ths]).to(self.args.device)
+                                pene_val0 = pene_val.repeat(num_foot_contact0)
+                                pene_val1 = pene_val.repeat(num_foot_contact1)
+                                
+                                foot_contact_loss0 = self.loss_func(out_pos0[foot_contact_label_b0][:, 1], pene_val0)
+                                foot_contact_loss1 = self.loss_func(out_pos1[foot_contact_label_b1][:, 1], pene_val1)
+                                loss0 += self.args.lambda_foot_contact * foot_contact_loss0
+                                loss1 += self.args.lambda_foot_contact * foot_contact_loss1
+                                sum_foot_contact_loss0 += foot_contact_loss0.item()
+                                sum_foot_contact_loss1 += foot_contact_loss1.item()
                             
                             # smooth loss
                             if self.args.loss_smooth:
@@ -491,7 +525,8 @@ class Network():
                     # role end 
                 # character end 
             
-            # validation loss
+            
+            """ validation loss """
             delta0, delta1 = \
                 self.spatio_temp_net(input0[:1, ..., :-3], input1[:1, ..., :-3],
                                      input0[:1, ..., -3:], input1[:1, ..., -3:],
@@ -503,7 +538,8 @@ class Network():
             valid_loss0 = self.loss_func(output_motion0, valid_gt0[:1])
             valid_loss1 = self.loss_func(output_motion1, valid_gt1[:1])
             
-            # log 
+            
+            """ log """
             wandb.log({
                 "epoch": epoch, 
                 "rec_loss0": sum_rec_loss0, 
@@ -512,6 +548,9 @@ class Network():
                 "root_loss1": sum_root_loss1, 
                 "fk_loss0": sum_fk_loss0, 
                 "fk_loss1": sum_fk_loss1, 
+                "foot_contact_loss0": sum_foot_contact_loss0,
+                "foot_contact_loss1": sum_foot_contact_loss1,
+                
                 "smooth_loss0": sum_smooth_loss0, 
                 "smooth_loss1": sum_smooth_loss1, 
                 "skel_disp_loss0": sum_skel_disp_loss0,

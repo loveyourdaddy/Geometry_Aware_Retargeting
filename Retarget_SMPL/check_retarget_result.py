@@ -1,9 +1,10 @@
 import os
 import sys
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
-sys.path.append('..')
+sys.path.append('../')
 
 import option_parser
+from detect_foot_contact import *
 from option_motion import example_bvh
 from Retarget_SMPL.retarget_smpl import load_edited_npy_motion
 from etc.etc import *
@@ -71,6 +72,29 @@ characters, motions = \
     render_result(args,
                   character_normal, character_normal, character_ptn, character_dfm,
                   motion0, motion1, motionA, motionB)
+
+
+# foot contact 
+# from motion
+foot_contact0 = detect_foot_contact(args, motion0)
+foot_contact_index = np.where(foot_contact0)
+for i in range(len(foot_contact_index[0])):
+    f = foot_contact_index[0][i]
+    j = foot_contact_index[1][i]
+    args.debug_points0.append(motion0.poses[f].global_p[j])
+
+# from motion
+position0 = [] 
+for pose in motion0.poses:
+    position0.append(pose.global_p)
+position0 = np.array(position0)
+
+foot_contact0 = detect_foot_contact_from_position(args, position0)
+foot_contact_index = np.where(foot_contact0)
+for i in range(len(foot_contact_index[0])):
+    f = foot_contact_index[0][i]
+    j = foot_contact_index[1][i]
+    args.debug_points0.append(motion0.poses[f].global_p[j])
 
 app = MyApp(characters, motions, args)
 app_manager.run(app)

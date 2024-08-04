@@ -10,6 +10,7 @@ from datasets.motion_dataset import *
 import option_parser
 from option_motion import example_bvh
 from Retarget_SMPL.relationship_descriptor import resolve_ground_pene, get_rootP_localR_globalP_from_motion
+from detect_foot_contact import *
 
 
 def main(args):
@@ -77,12 +78,12 @@ def main(args):
     else: 
         target0_character, target1_character = targ0_character, targ1_character
     
+    
     """ make motion """
     net = Network(args)
     net.load(args.test_proj + '/' , args.test_epoch, device=args.device)
-    
-    # test with aura mesh
     net.eval()
+    
     # forward
     jit_output_p0, jit_output_R0, \
     jit_output_p1, jit_output_R1 = \
@@ -93,17 +94,7 @@ def main(args):
                         target0_character, target1_character, 
                         source_motion0, source_motion1)
     
-    # # post process
-    # for pose in output_motion0.poses:
-    #     pose.root_p[1] += 0.01
-    #     pose.update()
-    # for pose in output_motion1.poses:
-    #     pose.root_p[1] += 0.01
-    #     pose.update()
-    # output_motion0, output_motion1 = \
-    #     resolve_ground_pene(args, output_motion0, output_motion1)
-
-    # auramesh
+    # test with aura mesh
     if False:
         motion_name0 = source0_motion_names[0]
         jit_output_R0 = np.load('auramesh/{}_local_R0.npy'.format(motion_name0))
@@ -111,7 +102,6 @@ def main(args):
         
         jit_output_R0 = torch.tensor(jit_output_R0)
         jit_output_R1 = torch.tensor(jit_output_R1)
-        
         
         source_output_p0 = []
         source_output_p1 = []
@@ -212,6 +202,15 @@ def main(args):
         # scaled_weights = (filtered_weights - min_val) / (max_val - min_val)
         args.debug_weight0 = scaled_weights
     
+    
+    # foot contact 
+    foot_contact0 = detect_foot_contact(args, source_motion0)
+    foot_contact_index = np.where(foot_contact0)
+    for i in range(len(foot_contact_index[0])):
+        f = foot_contact_index[0][i]
+        j = foot_contact_index[1][i]
+        args.debug_points0.append(source_motion0.poses[f].global_p[j])
+
     """ option """
     # save 
     if args.save:
@@ -230,22 +229,10 @@ def main(args):
         # print('saved: ' + save_path+name)
     else: # render
         from etc.etc import render_result
-        # from option_motion import align_motion_in_z_axis
-        
-        # if source0_motion_names[0] in align_motion_in_z_axis:
-        #     characters, motions = \
-        #         render_result(args, 
-        #                     source0_character, source1_character, target0_character, target1_character, 
-        #                     source_motion0, source_motion1, output_motion0, output_motion1, align_z_direction=True)
-        # else:
         characters, motions = \
             render_result(args, 
                         source0_character, source1_character, target0_character, target1_character, 
                         source_motion0, source_motion1, output_motion0, output_motion1) 
-        # characters = [target0_character, target1_character]
-        # motions    = [output_motion0, output_motion1]
-        # characters = [source0_character, source1_character]
-        # motions    = [source_motion0, source_motion1]
         app = MyApp(characters, motions, args, net)
         app_manager.run(app)
 
