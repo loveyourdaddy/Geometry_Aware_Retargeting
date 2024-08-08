@@ -18,6 +18,7 @@ app_manager = AppManager()
 args = option_parser.get_args()
 args.path = args.proj_name + '/'
 
+
 """ load characters """
 source_name = "SMPLx"
 character_normal, Tpose_normal, _ = get_a_smpl_character(args, source_name)
@@ -35,6 +36,7 @@ if role_change==False:
 else:
     rid = 1
 
+
 """ load edited motion """
 # original motion
 motion_keys   = example_bvh.keys()
@@ -48,20 +50,11 @@ motion_name = list(motion_keys)[idx_in_example] # original motion of example BVH
 # index 
 scales = get_scale()
 scale = scales[index]
-
+# scale
 leg_scale  = scale[0]
 body_scale = scale[1]
 hand_scale = scale[2]
 sid = index
-# sid = (leg_idx * len_index * len_index) + (body_idx * len_index) + hand_idx 
-
-# set motion1 as fitted with char1
-# if rid==0:
-#     for i in range(len(motion1.skeleton.joints)):
-#         motion1.skeleton.joints[i].offset = Tpose_deformed.skeleton.joints[i].offset
-# else:
-#     for i in range(len(motion0.skeleton.joints)):
-#         motion0.skeleton.joints[i].offset = Tpose_deformed.skeleton.joints[i].offset
 
 # copy and paste motion
 motionA, motionB = \
@@ -75,26 +68,40 @@ characters, motions = \
 
 
 # foot contact 
-# from motion
-foot_contact0 = detect_foot_contact(args, motion0)
-foot_contact_index = np.where(foot_contact0)
-for i in range(len(foot_contact_index[0])):
-    f = foot_contact_index[0][i]
-    j = foot_contact_index[1][i]
-    args.debug_points0.append(motion0.poses[f].global_p[j])
+# by motion
+# foot_contact0 = detect_foot_contact(args, motion0)
+# foot_contact_index = np.where(foot_contact0)
+# len_frame = len(motion0.poses) # position0.shape[0]
+# for i in range(len(foot_contact_index[0])):
+#     f = foot_contact_index[0][i]
+#     j = foot_contact_index[1][i]
+#     print(f"{f} {j}")
+#     if f > len_frame/2 and 4==4:
+#         # args.debug_points0.append(motion0.poses[f].global_p[j])
+#         args.debug_points0.append(motionB.poses[f].global_p[j])
 
-# from motion
+# by position
 position0 = [] 
 for pose in motion0.poses:
     position0.append(pose.global_p)
 position0 = np.array(position0)
 
+# print()
+len_frame = len(motion0.poses)
 foot_contact0 = detect_foot_contact_from_position(args, position0)
 foot_contact_index = np.where(foot_contact0)
 for i in range(len(foot_contact_index[0])):
+    # ee 
     f = foot_contact_index[0][i]
     j = foot_contact_index[1][i]
-    args.debug_points0.append(motion0.poses[f].global_p[j])
+    if j < len_frame/2:
+        args.debug_points0.append(motion0.poses[f].global_p[j])
+    
+    # # before ee 
+    # f = foot_heel_contact_index[0][i]
+    # j = foot_heel_contact_index[1][i]
+    # if j < len_frame/2:
+    #     args.debug_points1.append(motion0.poses[f].global_p[j])
 
 app = MyApp(characters, motions, args)
 app_manager.run(app)

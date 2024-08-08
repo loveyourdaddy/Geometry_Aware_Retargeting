@@ -7,6 +7,7 @@ def get_args():
 
 def get_parser():
     parser = argparse.ArgumentParser()
+    
     # train
     parser.add_argument('--proj_name', type=str, default='')
 
@@ -111,7 +112,9 @@ def get_parser():
     parser.add_argument('--interaction_end_frame', type=int, default=-1)
     parser.add_argument('--num_joint', type=int, default=22)
     parser.add_argument('--num_anchor_perjoint', type=int, default=4)
-    parser.add_argument('--pene_ths_before_ee', type=float, default=0.08) # 0.08
+    
+    # ground pene 
+    parser.add_argument('--pene_ths_heel', type=float, default=0.08) # 0.08
     parser.add_argument('--pene_ths', type=float, default=0.05) #0.02
     
     # part
@@ -132,8 +135,8 @@ def get_parser():
                         default=[0, 9, 10, 11, 12, 13])
     parser.add_argument('--hand_joints', type=list,
                         default=[14, 15, 16, 17, 18, 19, 20, 21])
-    parser.add_argument('--foot_index', type=list,
-                        default=[4, 8])
+    parser.add_argument('--foot_ee_index', type=list, default=[4, 8]) # foot 
+    parser.add_argument('--foot_heel_index', type=list, default=[3, 7]) # heel
     
     parser.add_argument('--left_leg_joints', type=list,  default=[1, 2, 3, 4])
     parser.add_argument('--right_leg_joints', type=list, default=[5, 6, 7, 8])

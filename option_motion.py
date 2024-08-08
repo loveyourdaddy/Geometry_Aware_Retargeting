@@ -44,11 +44,11 @@ example_bvh = {
     # "Medium_03_male_30fps": "Medium_03_female_30fps",
     # "martial_SpinTurn_A": "martial_SpinTurn_B",
     # "neckback_A": "neckback_B",
-    "move_03_03_male_30fps":"move_03_03_female_30fps", 
+    # "move_03_03_male_30fps":"move_03_03_female_30fps",
     # "jump_crawl001_S1":"jump_crawl001_S2",
     # "push_up001_S1":"push_up001_S2",
     # "stack_push_up001_S1":"stack_push_up001_S2",
-    # "one_leg_back_stretch_S1":"one_leg_back_stretch_S2",
+    "one_leg_back_stretch_S1":"one_leg_back_stretch_S2",
     
     # captured
     # "HuggingNormal_SCW": "HuggingNormal_JIS",
@@ -100,8 +100,8 @@ example_bvh = {
     # "SMPLx_8_C0": "SMPLx_8_C1",
     # "SMPLx_9_C0": "SMPLx_9_C1",
     
-    # unseen mirror  
-    # "mirror_stack_push_up001_S1":"mirror_stack_push_up001_S2", # "stack_pu
+    # unseen mirror
+    # "mirror_stack_push_up001_S1":"mirror_stack_push_up001_S2",
     # "mirror_push_up001_S1":"mirror_push_up001_S2",
     # "mirror_jump_crawl001_S1":"mirror_jump_crawl001_S2", # "jump_crawl001_S2":"jump_crawl001_S1",
     # "mirror_one_leg_back_stretch_S1":"mirror_one_leg_back_stretch_S2",

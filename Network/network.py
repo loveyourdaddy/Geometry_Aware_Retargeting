@@ -213,6 +213,7 @@ class Network():
         # load 
         if self.args.begin_epoch != 0:
             self.load(self.args.path, self.args.begin_epoch)
+
         # train
         for epoch in range(self.args.begin_epoch, self.args.end_epoch):
             # loss record 
@@ -354,14 +355,8 @@ class Network():
                             
                             # foot contact loss
                             if self.args.loss_foot_contact:
-                                num_foot_contact0 = torch.where(foot_contact_label_b0)[0].shape[0]
-                                num_foot_contact1 = torch.where(foot_contact_label_b1)[0].shape[0]
-                                pene_val = torch.tensor([self.args.pene_ths]).to(self.args.device)
-                                pene_val0 = pene_val.repeat(num_foot_contact0)
-                                pene_val1 = pene_val.repeat(num_foot_contact1)
-                                
-                                foot_contact_loss0 = self.loss_func(out_pos0[foot_contact_label_b0][:, 1], pene_val0)
-                                foot_contact_loss1 = self.loss_func(out_pos1[foot_contact_label_b1][:, 1], pene_val1)
+                                foot_contact_loss0 = self.loss_func(out_pos0[foot_contact_label_b0][:, 1], gt_pos_b0[foot_contact_label_b0][:, 1])                             
+                                foot_contact_loss1 = self.loss_func(out_pos1[foot_contact_label_b1][:, 1], gt_pos_b1[foot_contact_label_b1][:, 1])
                                 loss0 += self.args.lambda_foot_contact * foot_contact_loss0
                                 loss1 += self.args.lambda_foot_contact * foot_contact_loss1
                                 sum_foot_contact_loss0 += foot_contact_loss0.item()

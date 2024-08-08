@@ -103,4 +103,4 @@ macro/*
 scale_values/*
 auramesh/*.npy
 visualize/*
-
+auramesh/saved_result/*

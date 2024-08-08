@@ -59,7 +59,7 @@ def main(args):
         dataset.load_norm_info()
         dataset.normalize()
 
-    # swap role: target character의 set skeleton이 되어야함
+    # swap role
     if args.role_change:
         target1_character, target0_character = targ0_character, targ1_character
         # offset 
@@ -93,6 +93,10 @@ def main(args):
                         jit_output_p1, jit_output_R1, 
                         target0_character, target1_character, 
                         source_motion0, source_motion1)
+    
+    # post processing
+    # output_motion0, output_motion1 = \
+    #     resolve_ground_pene(args, output_motion0, output_motion1)
     
     # test with aura mesh
     if False:
