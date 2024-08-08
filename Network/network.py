@@ -201,9 +201,9 @@ class Network():
             valid_targ_rest0 = valid_targ_info0[:valid_cid+1].reshape(1,1,-1).repeat(1,len_frame,1)
             valid_targ_rest1 = valid_targ_info1[:valid_cid+1].reshape(1,1,-1).repeat(1,len_frame,1)
         
-        # anchor 
-        anchor_vids_nor = anchor_vids[0]
-        anchor_vpos_nor = anchor_vpos[0]
+        # source anchor in Tpose (normal SMPLx)
+        anchor_vids_src = anchor_vids[0]
+        anchor_vpos_src = anchor_vpos[0]
         
         # foot contact detection
         from detect_foot_contact import detect_foot_contact_from_batched_position
@@ -235,20 +235,15 @@ class Network():
             sum_reg_loss = 0
             
             for cid in range(num_char):
-                anchor_vids_ = anchor_vids[cid]
-                anchor_vpos_ = anchor_vpos[cid]
                 for rid in range(num_role):
+                    # parter id 
+                    pid = 1 - rid
                     if self.args.loss_anchor:
-                        if rid==0: # dfm char1
-                            anchor_vids0 = anchor_vids_nor
-                            anchor_vpos0 = anchor_vpos_nor
-                            anchor_vids1 = anchor_vids_
-                            anchor_vpos1 = anchor_vpos_
-                        elif rid==1: # dfm char0
-                            anchor_vids0 = anchor_vids_
-                            anchor_vpos0 = anchor_vpos_
-                            anchor_vids1 = anchor_vids_nor
-                            anchor_vpos1 = anchor_vpos_nor
+                        # rid==0: dfm char1, rid==1: dfm char0
+                        anchor_vids0 = anchor_vids[rid]
+                        anchor_vids1 = anchor_vids[pid]
+                        anchor_vpos0_Tpose = anchor_vpos[rid]
+                        anchor_vpos1_Tpose = anchor_vpos[pid]
                     
                     for sid in range(num_scale):
                         for bid in range(num_batch):
@@ -400,6 +395,7 @@ class Network():
                                     source_skel_map1 = get_displacement_map(source_pos1, source_pos0)
                                     out_skel_map0 = get_displacement_map(out_pos0, out_pos1.detach())
                                     out_skel_map1 = get_displacement_map(out_pos1, out_pos0.detach())
+
                                 # loss
                                 skel_loss0 = self.distance_map_loss(source_skel_map0, out_skel_map0)
                                 skel_loss1 = self.distance_map_loss(source_skel_map1, out_skel_map1)
@@ -410,12 +406,14 @@ class Network():
                             
                             # anchor loss 
                             if self.args.loss_anchor:
-                                anchor_source_vids_b = anchor_vids_nor.reshape(1, 1, len_vids).repeat(b_size, len_frame, 1).to(self.args.device)
+                                # vid 
+                                anchor_vids_src_b = anchor_vids_src.reshape(1, 1, len_vids).repeat(b_size, len_frame, 1).to(self.args.device)
                                 anchor_vids0_b = anchor_vids0.reshape(1, 1, len_vids).repeat(b_size, len_frame, 1).to(self.args.device)
                                 anchor_vids1_b = anchor_vids1.reshape(1, 1, len_vids).repeat(b_size, len_frame, 1).to(self.args.device)
-                                anchor_source_vpos_b = anchor_vpos_nor.reshape(1, 1, len_vids, 3).repeat(b_size, len_frame, 1, 1).to(self.args.device)
-                                anchor_vpos0_b = anchor_vpos0.reshape(1, 1, len_vids, 3).repeat(b_size, len_frame, 1, 1).to(self.args.device)
-                                anchor_vpos1_b = anchor_vpos1.reshape(1, 1, len_vids, 3).repeat(b_size, len_frame, 1, 1).to(self.args.device)
+                                # vpos
+                                anchor_vpos_src_b = anchor_vpos_src.reshape(1, 1, len_vids, 3).repeat(b_size, len_frame, 1, 1).to(self.args.device)
+                                anchor_vpos0_Tpose_b = anchor_vpos0_Tpose.reshape(1, 1, len_vids, 3).repeat(b_size, len_frame, 1, 1).to(self.args.device)
+                                anchor_vpos1_Tpose_b = anchor_vpos1_Tpose.reshape(1, 1, len_vids, 3).repeat(b_size, len_frame, 1, 1).to(self.args.device)
                                 
                                 # source 
                                 # gt 
@@ -457,29 +455,30 @@ class Network():
                                         source_R1 = R6_to_R(in_R1)
 
                                 # anchor position
-                                # source
-                                source_anchor_positions0 = self.get_anchor_position(
-                                    cid,
-                                    source_offset0, source_R0, source_root_p0, 
-                                    anchor_source_vpos_b, anchor_source_vids_b, batch, frame)
-                                source_anchor_positions1 = self.get_anchor_position(
-                                    cid, 
-                                    source_offset1, source_R1, source_root_p1, 
-                                    anchor_source_vpos_b, anchor_source_vids_b, batch, frame)
+                                # source TODO: source을 미리 계산해둘 방법은 없나? batch로 미리 들고 있기? 메모리가 너무 큰가? 
+                                source_anchor_positions0 = \
+                                    self.get_anchor_position(cid,
+                                                             source_offset0, source_R0, source_root_p0, 
+                                                             anchor_vpos_src_b, anchor_vids_src_b, batch, frame)
+                                source_anchor_positions1 = \
+                                    self.get_anchor_position(cid,
+                                                             source_offset1, source_R1, source_root_p1,
+                                                             anchor_vpos_src_b, anchor_vids_src_b, batch, frame)
+
                                 # output
-                                out_anchor_positions0 = self.get_anchor_position(
-                                    cid, 
-                                    tar_offset0, out_R0, root_p0, 
-                                    anchor_vpos0_b, anchor_vids0_b, batch, frame)
-                                out_anchor_positions1 = self.get_anchor_position(
-                                    cid,
-                                    tar_offset1, out_R1, root_p1, 
-                                    anchor_vpos1_b, anchor_vids1_b, batch, frame)
+                                out_anchor_positions0 = \
+                                    self.get_anchor_position(cid,
+                                                             tar_offset0, out_R0, root_p0, 
+                                                             anchor_vpos0_Tpose_b, anchor_vids0_b, batch, frame)
+                                out_anchor_positions1 = \
+                                    self.get_anchor_position(cid,
+                                                             tar_offset1, out_R1, root_p1,
+                                                             anchor_vpos1_Tpose_b, anchor_vids1_b, batch, frame)
                                 
                                 # distance / displacement
                                 if self.args.anchor_dist:
                                     # dist map
-                                    source_anchor_map0 = get_distance_map(source_anchor_positions0, source_anchor_positions1)
+                                    source_anchor_map0 = get_distance_map(source_anchor_positions0, source_anchor_positions1) # TODO: 미리 계산해두기
                                     source_anchor_map1 = get_distance_map(source_anchor_positions1, source_anchor_positions0)
                                     out_anchor_map0 = get_distance_map(out_anchor_positions0, out_anchor_positions1.detach())
                                     out_anchor_map1 = get_distance_map(out_anchor_positions1, out_anchor_positions0.detach())

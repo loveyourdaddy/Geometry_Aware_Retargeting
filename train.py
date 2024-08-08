@@ -11,7 +11,7 @@ import torch.backends.cudnn as cudnn
 import random
 
 
-def main(args): 
+def main(args):
     args.path = args.proj_name + '/'
     
     seed_value = args.seed_value
