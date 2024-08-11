@@ -11,7 +11,7 @@ def get_parser():
     # train
     parser.add_argument('--proj_name', type=str, default='')
 
-    # test 
+    # test
     parser.add_argument('--test_proj',  type=str, default='') # 240424_FK100GtDist10_scaled
     parser.add_argument('--test_epoch', type=int, default=0) # 8000
     
@@ -19,18 +19,9 @@ def get_parser():
     parser.add_argument('--test_type', type=str, default="Mixamo") # SMPLx Mixamo
     parser.add_argument('--test_char', type=str, default="fat")  # normal small fat
     parser.add_argument('--role_change', type=str_to_bool, default=False) # True False
-    # save 
+    # save
     parser.add_argument('--save', type=str_to_bool, default=False)
     parser.add_argument('--debug', type=str_to_bool, default=False)
-    
-    
-    """ compare """
-    parser.add_argument('--test_proj_woAnc', type=str, default='240424_FK100_rec_scaled') 
-    parser.add_argument('--woAnc_epoch', type=int, default=7000)
-    parser.add_argument('--test_proj_woFK', type=str, default='240509_noFK_RandomScaled') 
-    parser.add_argument('--woFK_epoch', type=int, default=7000)
-    parser.add_argument('--compare_proj_name', type=str, default='240424_FK100_rec_scaled') 
-    parser.add_argument('--compare_epoch', type=int, default=7000)
     
     
     """ setting """
@@ -64,24 +55,10 @@ def get_parser():
     # anchor loss
     parser.add_argument('--loss_anchor', type=str_to_bool, default=True)
     parser.add_argument('--lambda_anchor', type=float, default=10)
-    parser.add_argument('--anchor_gt', type=str_to_bool, default=True)
-    parser.add_argument('--anchor_dist', type=str_to_bool, default=True)
     # foot contact loss
     parser.add_argument('--loss_foot_contact', type=str_to_bool, default=True)
     parser.add_argument('--lambda_foot_contact', type=float, default=1.0)
     
-    # skel loss
-    parser.add_argument('--loss_skel', type=str_to_bool, default=False)
-    parser.add_argument('--lambda_skel', type=float, default=100.0)
-    parser.add_argument('--skel_gt', type=str_to_bool, default=True)
-    parser.add_argument('--skel_dist', type=str_to_bool, default=True)
-    # smooth
-    parser.add_argument('--loss_smooth', type=str_to_bool, default=False)
-    parser.add_argument('--lambda_smooth', type=float, default=10.0)
-    # reg
-    parser.add_argument('--loss_reg', type=str_to_bool, default=False)
-    parser.add_argument('--lambda_reg', type=float, default=0.01)
-
     # settings
     parser.add_argument('--learning_rate', type=float, default=2e-4)
     parser.add_argument('--kp', type=float, default=0.9)

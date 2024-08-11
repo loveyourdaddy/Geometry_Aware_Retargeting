@@ -158,7 +158,6 @@ class Network():
             gt1 = gt1[:, :1]
             gt_pos0 = gt_pos0[:, :1]
             gt_pos1 = gt_pos1[:, :1]
-            
 
         # info
         num_motion, len_frame, _ = input0.shape
@@ -233,7 +232,8 @@ class Network():
             sum_skel_disp_loss0 = 0
             sum_skel_disp_loss1 = 0
             sum_reg_loss = 0
-            
+
+            # train
             for cid in range(num_char):
                 for rid in range(num_role):
                     # parter id 

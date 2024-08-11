@@ -48,7 +48,7 @@ example_bvh = {
     # "jump_crawl001_S1":"jump_crawl001_S2",
     # "push_up001_S1":"push_up001_S2",
     # "stack_push_up001_S1":"stack_push_up001_S2",
-    "one_leg_back_stretch_S1":"one_leg_back_stretch_S2",
+    # "one_leg_back_stretch_S1":"one_leg_back_stretch_S2",
     
     # captured
     # "HuggingNormal_SCW": "HuggingNormal_JIS",

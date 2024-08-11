@@ -88,6 +88,7 @@ def main(args):
     jit_output_p0, jit_output_R0, \
     jit_output_p1, jit_output_R1 = \
         net.forward(dataset)
+        
     output_motion0, output_motion1 = \
         make_new_motions(args, jit_output_p0, jit_output_R0, 
                         jit_output_p1, jit_output_R1, 
@@ -237,15 +238,14 @@ def input_motion_translate(args, motion0, motion1):
     translate0 = np.array([0.0, 0, 0.0])
     translate1 = np.array([0.0, 0, 0.0])
     
-    if motion0.name == "move_03_03_female_30fps":
+    if motion0.name == "move_03_03_male_30fps":
         translate1 = np.array([+0.1, 0, -0.1])
-        
-    elif args.test_type=="Mixamo" and motion0.name == "one_leg_back_stretch_S1":
+    elif motion0.name == "one_leg_back_stretch_S1":
         translate1 = np.array([0, 0, +0.1])
-    
     else:
         return motion0, motion1
-        
+    print("input motion1 translated in {}".format(translate1))
+    
     # update motion
     for pose in motion0.poses:
         pose.root_p += translate0
@@ -255,7 +255,6 @@ def input_motion_translate(args, motion0, motion1):
         pose.update()
         
     return motion0, motion1
-
 
 if __name__ == "__main__":
     args = option_parser.get_args()
