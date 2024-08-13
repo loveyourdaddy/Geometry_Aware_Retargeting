@@ -1,49 +1,61 @@
-import os
 import sys
+import os
+
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 sys.path.append('../')
 
-from pymovis.motion.ops.npmotion import R_to_R6
-import option_parser
+from pymovis.vis.appmanager import AppManager
+from pymovis.vis.app import MyApp
+from etc.etc import render_result, render_compare, deepcopy
+from relationship_descriptor import *
 from option_motion import example_bvh, start_frame_dict, end_frame_dict,\
     ptn_root_motion, ptn_spine_motion, ptn_leg_motion, ptn_spine_for_fat, ptn_not_arm_motion,\
     dfm_root_motion, dfm_spine_motion, dfm_leg_motion
-from Retarget_SMPL.relationship_descriptor import *
-from etc.etc import render_result, render_compare, deepcopy
-from pymovis.vis.app import MyApp
-from pymovis.vis.appmanager import AppManager
+import option_parser
+from pymovis.motion.ops.npmotion import R_to_R6
+from pymovis.motion.data import bvh
+
 # from Geometry.compare_geometry import collision_check_and_resolve
+
 
 def retarget_smpl(args,
                   geo_source0, geo_source1, geo_target0, geo_target1,
                   motion0, motion1, edited_motion0, edited_motion1,
                   render=True, pene=False,
-                  ptn_root_joints=None, ptn_spine_joints=None, ptn_limb_joints=None, 
+                  ptn_root_joints=None, ptn_spine_joints=None, ptn_limb_joints=None,
                   dfm_root_joints=None, dfm_spine_joints=None, dfm_limb_joints=None,):
-
+    import time 
+    time0 = time.time()
     """ edit motion """
     # Partner (charA, motion0) : joint A <-> anchor B
     edited_motion0 = retarget_one_motion(args,
-                                   geo_source1, geo_target1,
-                                   motion0, motion1,
-                                   edited_motion0, edited_motion1,
-                                   root_joints=ptn_root_joints, spine_joints=ptn_spine_joints, limb_joints=ptn_limb_joints)
+                                         geo_source1, geo_target1,
+                                         motion0, motion1,
+                                         edited_motion0, edited_motion1,
+                                         root_joints=ptn_root_joints, spine_joints=ptn_spine_joints, limb_joints=ptn_limb_joints)
 
+    time1 = time.time()
     # Deformed (charB, motion1): anchor A <-> Joint B
     edited_motion1 = retarget_one_motion(args,
-                                   geo_source0, geo_target0,
-                                   motion1, motion0,
-                                   edited_motion1, edited_motion0,
-                                   root_joints=dfm_root_joints, spine_joints=dfm_spine_joints, limb_joints=dfm_limb_joints)
-
-    # if pene:
+                                         geo_source0, geo_target0,
+                                         motion1, motion0,
+                                         edited_motion1, edited_motion0,
+                                         root_joints=dfm_root_joints, spine_joints=dfm_spine_joints, limb_joints=dfm_limb_joints)
+    time2 = time.time()
+    
+    print("retarget_one_motion time: {} and {}".format(time1-time0, time2-time1))
+    print("total time: {}".format(time2-time0))
+    
+    # if pene:렁
     #     joints = [15,16,17, 19,20,21]
     #     ptn_joints = list(range(22))
     #     collision_check_and_resolve(args, geo_target0, geo_target1, edited_motion0, motion1, joints, ptn_joints)
-    
+
     # output
-    root_p0, local_R0, _ = get_rootP_localR_globalP_from_motion(args, edited_motion0.poses)
-    root_p1, local_R1, _ = get_rootP_localR_globalP_from_motion(args, edited_motion1.poses)
+    root_p0, local_R0, _ = get_rootP_localR_globalP_from_motion(
+        args, edited_motion0.poses)
+    root_p1, local_R1, _ = get_rootP_localR_globalP_from_motion(
+        args, edited_motion1.poses)
 
     if render:
         return root_p0, local_R0, root_p1, local_R1, \
@@ -97,28 +109,6 @@ def load_edited_npy_motion(args, motionA, motionB, char_name, motion_name,
 
     return motion0, motion1
 
-def motion_add_virtual_joints(args, motion):
-    offset_r = args.offset_r
-
-    # motion
-    skeleton = motion.skeleton
-    left_hand_idx = 17
-    left_hand = skeleton.joints[left_hand_idx]
-    right_hand_idx = 21
-    right_hand = skeleton.joints[right_hand_idx]
-    skeleton.add_joint(left_hand.name+"_ee",
-                       parent_idx=left_hand_idx,  offset=offset_r*left_hand.offset)
-    skeleton.add_joint(right_hand.name+"_ee",
-                       parent_idx=right_hand_idx, offset=offset_r*right_hand.offset)
-
-    iden = np.expand_dims(np.eye(3, dtype=np.float32), axis=0)
-    for pose in motion.poses:
-        pose.local_R = np.append(pose.local_R, iden, axis=0)
-        pose.local_R = np.append(pose.local_R, iden, axis=0)
-        pose.update()
-
-    return motion
-
 def scale_character(args, character, leg_scale, body_scale, hand_scale):
     # edit character skeleton
     for joint in args.leg_joints:
@@ -128,10 +118,11 @@ def scale_character(args, character, leg_scale, body_scale, hand_scale):
     for joint in args.hand_joints:
         character.meshes[0].source_skeleton.joints[joint].offset *= hand_scale
 
+
 def scale_offset_and_root(args, motion, root_scale, leg_scale, body_scale, hand_scale):
     # edit character skeleton
     scale_offset(args, motion, leg_scale, body_scale, hand_scale)
-    
+
     # edit root
     for pose in motion.poses:
         pose.root_p[1] *= root_scale
@@ -147,12 +138,12 @@ def scale_offset(args, motion, leg_scale, body_scale, hand_scale):
 
 def update_target_joints(args, motion_name0, motion_name1):
     """ ptn """
-    # root 
+    # root
     ptn_root_joints = []
     if motion_name0 in ptn_root_motion or motion_name1 in ptn_root_motion:
         ptn_root_joints += [0]
-    # spine 
-    ptn_spine_joints = [] 
+    # spine
+    ptn_spine_joints = []
     if motion_name0 in ptn_spine_motion or motion_name1 in ptn_spine_motion:
         ptn_spine_joints += args.RD_spine_joints
     # limb
@@ -162,116 +153,140 @@ def update_target_joints(args, motion_name0, motion_name1):
     if motion_name0 in ptn_leg_motion or motion_name1 in ptn_leg_motion:
         ptn_limb_joints += args.RD_leg_joints
 
-    
     """ dfm """
     # Root
     dfm_root_joints = []
     if motion_name0 in dfm_root_motion or motion_name1 in dfm_root_motion:
         dfm_root_joints += [0]
     # spine
-    dfm_spine_joints = [] 
+    dfm_spine_joints = []
     if motion_name0 in dfm_spine_motion or motion_name1 in dfm_spine_motion:
         dfm_spine_joints += args.RD_spine_joints
     # limb
     dfm_limb_joints = args.RD_hand_joints
     if motion_name0 in dfm_leg_motion or motion_name1 in dfm_leg_motion:
         dfm_limb_joints += args.RD_leg_joints
-        
+
     return ptn_root_joints, ptn_spine_joints, ptn_limb_joints,\
         dfm_root_joints, dfm_spine_joints, dfm_limb_joints
+
 
 if __name__ == '__main__':
     app_manager = AppManager()
     args = option_parser.get_args()
-    args.device = "cpu" # "cuda"
+    args.device = "cpu"  # "cuda"
 
-    """ character, moiton """
-    from datasets.character_functions import get_a_smpl_character
-    # ptn
-    ptn_name = "SMPLx"
-    character_ptn, _, geometry_nor = get_a_smpl_character(args, ptn_name)
-    # dfm
-    deformed_name = args.target_characters[1] # 0 1
-    index = -1 # 0 # 
-    role_change = False # True False
-    character_dfm, Tpose_dfm, geometry_dfm = get_a_smpl_character(args, deformed_name)
+    # load character
+    if args.adapt_char == "SMPLx":
+        from datasets.character_functions import get_a_smpl_character
 
-    # motion name
+        # ptn
+        ptn_name = "SMPLx"  # Ybot
+        character_ptn, _, geometry_nor = get_a_smpl_character(args, ptn_name)
+
+        # dfm
+        deformed_name = args.target_characters[1]  # 0 1
+        index = -1  # 0 #
+        role_change = False  # True False
+        character_dfm, Tpose_dfm, geometry_dfm = get_a_smpl_character(args, deformed_name)
+
+    else:
+        from datasets.character_functions import get_a_character
+        template_Tpose = bvh.load(
+            "../Resource/Tpose_template.bvh", v_forward=[0, 0, 1], v_up=[0, 1, 0]
+        )
+        # source 
+        src_name = "Ybot"
+        character_src_ptn, _, geometry_src_nor = get_a_character(args, src_name, template_Tpose)
+        # one more 
+        
+        # target 
+        # ptn
+        ptn_name = "Leonard"
+        character_tgt_ptn, _, geometry_tgt_nor = get_a_character(args, ptn_name, template_Tpose)
+        # dfm
+        deformed_name = "Amy" # Ortiz Amy
+        character_tgt_dfm, Tpose_tgt_dfm, geometry_tgt_dfm = get_a_character(args, deformed_name, template_Tpose)
+        
+    # load motion
     from datasets.motion_functions import get_interaction_motions_from_list
     motion_name0 = list(example_bvh.keys())[0]
     motion_name1 = list(example_bvh.values())[0]
-    motion0 = get_interaction_motions_from_list("SMPLx", [motion_name0])[0]
-    motion1 = get_interaction_motions_from_list("SMPLx", [motion_name1])[0]
+    motion0 = get_interaction_motions_from_list(src_name, [motion_name0])[0]
+    motion1 = get_interaction_motions_from_list(src_name, [motion_name1])[0]
 
     # limb target
     ptn_root_joints, ptn_spine_joints, ptn_limb_joints, \
-    dfm_root_joints, dfm_spine_joints, dfm_limb_joints = \
+        dfm_root_joints, dfm_spine_joints, dfm_limb_joints = \
         update_target_joints(args, motion_name0, motion_name1)
-    # only for fat 
-    ptn_spine_joints = [] 
-    if motion_name0 in ptn_spine_for_fat and deformed_name=="SMPLx_fat":
-        ptn_spine_joints += args.RD_spine_joints
     
-    # swap role 
-    if role_change:
-        tmp = deepcopy(motion1)
-        motion1 = deepcopy(motion0)
-        motion0 = deepcopy(tmp)
-    # target motion
+    # target motion : why doing this?
     motion_ptn = deepcopy(motion0)
     motion_dfm = deepcopy(motion1)
-    character_dfm.set_source_skeleton(motion_dfm.skeleton, "")
-    geometry_dfm.source_skeleton = motion_dfm.skeleton
-    
-    # fit smplx motion to new skeleton
-    # offset 
-    for i in range(len(motion_dfm.skeleton.joints)):
-        motion_dfm.skeleton.joints[i].offset = Tpose_dfm.skeleton.joints[i].offset
-    # root scale
-    root_scale = Tpose_dfm.skeleton.joints[0].offset[1]
-    for i in range(len(motion_dfm.poses)):
-        motion_dfm.poses[i].root_p *= root_scale
-    
-    # scale
-    if deformed_name == "SMPLx":
-        scales = np.load("./scale_values/scales.npy")
+    if args.adapt_char == "SMPLx":
+        character_tgt_dfm.set_source_skeleton(motion_dfm.skeleton, "")
+        geometry_tgt_dfm.source_skeleton = motion_dfm.skeleton
     else:
-        scales = np.load("./scale_values/scales_fat.npy")
-    
-    leg_idx  = index
-    body_idx = index
-    hand_idx = index
-    leg_scale  = scales[leg_idx]
-    body_scale = scales[body_idx]
-    hand_scale = scales[hand_idx]
-    print("leg_scale {}, body_scale {}, hand_scale {} ".format(leg_scale, body_scale, hand_scale))
-    
-    # scale by joint
-    root_scale = leg_scale
-    scale_offset_and_root(args, motion_dfm, root_scale, leg_scale, body_scale, hand_scale)
-    
-    
+        from pymovis.vis.const import MIXAMO_BVH_TO_FBX
+        character_tgt_dfm.set_source_skeleton(motion_dfm.skeleton, MIXAMO_BVH_TO_FBX)
+        geometry_tgt_dfm.source_skeleton = motion_dfm.skeleton
+
+    # fit smplx motion to new skeleton
+    # offset
+    for i in range(len(motion_dfm.skeleton.joints)):
+        motion_dfm.skeleton.joints[i].offset = Tpose_tgt_dfm.skeleton.joints[i].offset
+    # root scale
+    root_scale = Tpose_tgt_dfm.skeleton.joints[0].offset[1]
+    for pose in motion_dfm.poses:
+        pose.root_p *= root_scale
+        pose.update()
+
+    if args.adapt_char == "SMPLx":
+        # scale
+        if deformed_name == "SMPLx":
+            scales = np.load("./scale_values/scales.npy")
+        else:
+            scales = np.load("./scale_values/scales_fat.npy")
+
+        leg_idx = index
+        body_idx = index
+        hand_idx = index
+        leg_scale = scales[leg_idx]
+        body_scale = scales[body_idx]
+        hand_scale = scales[hand_idx]
+        print("leg_scale {}, body_scale {}, hand_scale {} ".format(
+            leg_scale, body_scale, hand_scale))
+
+        # scale by joint
+        root_scale = leg_scale
+        scale_offset_and_root(args, motion_dfm, root_scale,
+                              leg_scale, body_scale, hand_scale)
+
     """ setting """
     # clipping
-    args.update_by_clampping_range = True # False
+    args.update_by_clampping_range = True  # False
     if args.update_by_clampping_range:
         if motion_name0 in start_frame_dict.keys():
             args.interaction_start_frame = start_frame_dict[motion_name0]
             args.interaction_end_frame = end_frame_dict[motion_name0]
-            print("{}'s interaction {} ~ {}".format(motion_name0, args.interaction_start_frame, args.interaction_end_frame))
+            print("{}'s interaction {} ~ {}".format(motion_name0,
+                  args.interaction_start_frame, args.interaction_end_frame))
 
     """ retarget """
     root_p0, local_R0, root_p1, local_R1, motion0, motion1, motion_ptn, motion_dfm = \
-        retarget_smpl(args, 
-                      geometry_nor, geometry_nor, geometry_nor, geometry_dfm,
+        retarget_smpl(args,
+                      geometry_src_nor, geometry_src_nor, geometry_tgt_nor, geometry_tgt_dfm,
                       motion0, motion1, motion_ptn, motion_dfm,
                       render=True, pene=False,
-                      ptn_root_joints=ptn_root_joints, ptn_spine_joints=ptn_spine_joints, ptn_limb_joints=ptn_limb_joints, 
+                      ptn_root_joints=ptn_root_joints, ptn_spine_joints=ptn_spine_joints, ptn_limb_joints=ptn_limb_joints,
                       dfm_root_joints=dfm_root_joints, dfm_spine_joints=dfm_spine_joints, dfm_limb_joints=dfm_limb_joints,)
-
+    #geometry_nor, geometry_nor, geometry_nor, geometry_dfm,
+    
     # render
     characters, motions = \
-        render_result(args, character_ptn, character_ptn, character_ptn, character_dfm,
-                        motion0, motion1, motion_ptn, motion_dfm)
+        render_result(args, 
+                      character_src_ptn, character_src_ptn, character_tgt_ptn, character_tgt_dfm,
+                      motion0, motion1, motion_ptn, motion_dfm)
+    # character_ptn, character_ptn, character_ptn,  character_dfm
     app = MyApp(characters, motions, args)
     app_manager.run(app)

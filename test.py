@@ -83,21 +83,32 @@ def main(args):
     net = Network(args)
     net.load(args.test_proj + '/' , args.test_epoch, device=args.device)
     net.eval()
+
+    import time
+    time0 = time.time()
     
     # forward
     jit_output_p0, jit_output_R0, \
     jit_output_p1, jit_output_R1 = \
         net.forward(dataset)
-        
+    time1 = time.time()
+    
     output_motion0, output_motion1 = \
         make_new_motions(args, jit_output_p0, jit_output_R0, 
                         jit_output_p1, jit_output_R1, 
                         target0_character, target1_character, 
                         source_motion0, source_motion1)
+    time2 = time.time()
+    
+    print("retarget_one_motion time: {} and {}".format(time1-time0, time2-time1))
+    print("total time: {}".format(time2-time0))
     
     # post processing
-    # output_motion0, output_motion1 = \
-    #     resolve_ground_pene(args, output_motion0, output_motion1)
+    output_motion0, output_motion1 = \
+        resolve_ground_pene(args, output_motion0, output_motion1)
+        
+    time3 = time.time()
+    print("pene time: {}".format(time3-time2))
     
     # test with aura mesh
     if False:

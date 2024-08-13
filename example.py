@@ -8,7 +8,7 @@ from datasets.motion_functions import *
 import option_parser
 from etc.etc import *
 from pymovis.motion.ops.torchmotion import *
-# from option_motion import example_bvh
+from option_motion import example_bvh
 from Retarget_SMPL.relationship_descriptor import get_rootP_localR_globalP_from_motion
 
 app_manager = AppManager()
@@ -23,22 +23,23 @@ template = bvh.load(
 # char
 # args.geo_preprocess = True
 # args.bvh_preprocess = True
-names = ["SMPLx", "SMPLx"] # Remy Leonard Amy Ortiz
+names = ["Ybot", "Amy"] # ["SMPLx", "SMPLx"] # Remy Leonard Amy Ortiz
 characters, motions = [], []
 geos = []
 vids = []
 vpositions = []
 after_vpositions = []
-motion_name = "back_lift001_S1"
+print(example_bvh)
+motion_name = "Tpose" # list(example_bvh)[0] # "back_lift001_S1"
 
-# TODO: interaction이름을 각각 가져오기.
+# TODO: interaction 이름을 각각 가져오기.
 for character_name0 in names:
-    source0_character, motion0 = get_a_character(args, character_name0, template)
+    source0_character, motion0, _ = get_a_character(args, character_name0, template)
     # source0_character, motion0, geo0 = get_a_character(args, character_name0, template)
     motion0 = get_interaction_motions_from_list(character_name0, [motion_name])[0]
+    source0_character.set_source_skeleton(motion0.skeleton, MIXAMO_BVH_TO_FBX)
     # motion0 = refine_motion(motion0, template)
     
-    # source0_character.set_source_skeleton(motion0.skeleton, MIXAMO_BVH_TO_FBX) # character도 같이 입력으로 받아, skeleton을 return해주기
     characters.append(source0_character)
     motions.append(motion0)
     # print(character_name0, (geo0.f_length))
