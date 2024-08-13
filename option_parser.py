@@ -14,11 +14,11 @@ def get_parser():
     parser.add_argument('--proj_name', type=str, default='')
 
     # test
-    parser.add_argument('--test_proj',  type=str, default='')
-    parser.add_argument('--test_epoch', type=int, default=0)
+    parser.add_argument('--test_proj',  type=str, default='240808_Gt1Fk100Anchor10_Root10Foot10_char01')
+    parser.add_argument('--test_epoch', type=int, default=8000)
 
     # character
-    parser.add_argument('--test_type', type=str, default="Mixamo")  # SMPLx Mixamo
+    parser.add_argument('--test_type', type=str, default="Mixamo") # SMPLx Mixamo
     parser.add_argument('--test_char', type=str, default="small")  # normal small fat
     parser.add_argument('--role_change', type=str_to_bool, default=False)  # True False
     # save
@@ -99,10 +99,6 @@ def get_parser():
                         default=[16, 17, 20, 21])
     parser.add_argument('--RD_leg_joints', type=list,
                         default=[2, 3, 4, 6, 7, 8])
-    # virtual joint
-    # parser.add_argument('--use_virtual_joints',
-    #                     type=str_to_bool, default=False)
-    # parser.add_argument('--offset_r', type=float, default=0.5)
 
     # joints for augment scaling
     parser.add_argument('--leg_joints', type=list,
@@ -111,18 +107,17 @@ def get_parser():
                         default=[0, 9, 10, 11, 12, 13])
     parser.add_argument('--hand_joints', type=list,
                         default=[14, 15, 16, 17, 18, 19, 20, 21])
-    parser.add_argument('--foot_ee_index', type=list, default=[4, 8])  # foot
-    parser.add_argument('--foot_heel_index', type=list, default=[3, 7])  # heel
+    parser.add_argument('--foot_ee_index', type=list, default=[4, 8])   # foot
+    parser.add_argument('--foot_heel_index', type=list, default=[3, 7]) # heel
 
     parser.add_argument('--left_leg_joints', type=list,  default=[1, 2, 3, 4])
     parser.add_argument('--right_leg_joints', type=list, default=[5, 6, 7, 8])
     parser.add_argument('--left_hand_joints', type=list, default=[14, 15, 16, 17])
     parser.add_argument('--right_hand_joints', type=list, default=[18, 19, 20, 21])
     
-    # ground pene
-    parser.add_argument('--pene_ths_heel', type=float, default=0.08) # 0.1
-    parser.add_argument('--pene_ths', type=float, default=0.02) # 0.02
-
+    # ground pene # detect 
+    parser.add_argument('--pene_ths_heel', type=float, default=0.08) # 작을수록 강한 규제
+    parser.add_argument('--pene_ths', type=float, default=0.02)
 
     ''' debug & render '''
     parser.add_argument('--source_pos', type=float, default=-2)
@@ -133,8 +128,7 @@ def get_parser():
     parser.add_argument('--debug_points2', type=list, default=[])
     parser.add_argument('--debug_points3', type=list, default=[])
     parser.add_argument('--debug_points4', type=list, default=[])
-    parser.add_argument('--align_motion_in_z_axis',
-                        type=str_to_bool, default=False)
+    parser.add_argument('--align_motion_in_z_axis', type=str_to_bool, default=False)
     parser.add_argument('--debug_lines0', type=list, default=[])
     parser.add_argument('--debug_lines1', type=list, default=[])
     parser.add_argument('--debug_weight0', type=list, default=[])

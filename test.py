@@ -99,14 +99,14 @@ def main(args):
                         target0_character, target1_character, 
                         source_motion0, source_motion1)
     time2 = time.time()
-    
     print("retarget_one_motion time: {} and {}".format(time1-time0, time2-time1))
     print("total time: {}".format(time2-time0))
+    # output_motion0_, output_motion1_ = deepcopy(output_motion0), deepcopy(output_motion1)
     
     # post processing
     output_motion0, output_motion1 = \
         resolve_ground_pene(args, output_motion0, output_motion1)
-        
+    
     time3 = time.time()
     print("pene time: {}".format(time3-time2))
     
@@ -151,73 +151,6 @@ def main(args):
         jit_output_p1, jit_output_R1, _ = get_rootP_localR_globalP_from_motion(args, output_motion1.poses)
         output_motion0 = make_new_motion(jit_output_p0, jit_output_R0, target0_character, source_motion0)
         output_motion1 = make_new_motion(jit_output_p1, jit_output_R1, target1_character, source_motion1)
-    
-    # draw lines for anchors
-    if False:
-        f = 90
-        def get_anchor_position(geo, motion):
-            root_p, local_R, _ = get_rootP_localR_globalP_from_motion(args, motion.poses)
-            geo.set_pose_by_source_batch_frame(local_R[None, ...], root_p[None, ...])
-            vpos = geo.get_positions_from_vids(torch.tensor(np.array(geo.anchor_vids)), torch.tensor([0]), torch.tensor([f]))
-            return vpos
-        
-        # source_anchor_vpos0 = get_anchor_position(source_geo0, source_motion0)
-        # source_anchor_vpos1 = get_anchor_position(source_geo1, source_motion1)
-        # global_ps0 =[]
-        # global_ps1 =[]
-        # global_ps0 = (source_motion0.poses[f].global_p)
-        # global_ps1 = (source_motion1.poses[f].global_p)
-        # source_anchor_vpos0 = torch.tensor(np.array(global_ps0))
-        # source_anchor_vpos1 = torch.tensor(np.array(global_ps1))
-        # source_anchor_vpos0 = get_anchor_position(source_geo0, source_motion0)
-        # source_anchor_vpos1 = get_anchor_position(source_geo1, source_motion1)
-        target_anchor_vpos0 = get_anchor_position(target_geo0, output_motion0)
-        target_anchor_vpos1 = get_anchor_position(target_geo1, output_motion1)
-        args.debug_points0 = target_anchor_vpos0
-        args.debug_points1 = target_anchor_vpos1
-        
-        source_anchor_vpos0 = target_anchor_vpos0
-        source_anchor_vpos1 = target_anchor_vpos1
-        
-        args.debug_lines0 = []
-        args.debug_lines1 = []
-        # 88, 88, 3
-        for i in range(len(source_anchor_vpos0)):
-            debug_lines0 = [] 
-            debug_lines1 = [] 
-            for j in range(len(source_anchor_vpos1)):
-                debug_lines0.append(source_anchor_vpos0[i])
-                debug_lines1.append(source_anchor_vpos1[j])
-            args.debug_lines0.append(torch.stack(debug_lines0))
-            args.debug_lines1.append(torch.stack(debug_lines1))
-        args.debug_lines0 = torch.stack(args.debug_lines0)
-        args.debug_lines1 = torch.stack(args.debug_lines1)
-        
-        from compare_quantity import exp_weight_of_distance
-        weight = exp_weight_of_distance(args, torch.abs(args.debug_lines0 - args.debug_lines1))
-        weight = np.linalg.norm(weight, axis=-1)
-        eps = 1e-6
-        weight = np.where(weight < eps, eps, weight)
-        min_ele = np.min(weight)
-        weight -= min_ele
-        weight /= np.max(weight)
-        
-        
-        # masked_weights = np.where(weight > 0.5, weight, 0)
-        index = np.where(weight < 0.5)
-        # 0.5 초과 값들을 0~1로 스케일링
-        min_val = 0.5
-        max_val = 1.0
-        scaled_weights = (weight - min_val) / (max_val - min_val)
-        scaled_weights[index] = 0
-        
-        # filtered_weights = weight[weight > 0.5]
-        # # 0.5 초과 값들을 0~1로 스케일링
-        # min_val = 0.5
-        # max_val = 1.0
-        # scaled_weights = (filtered_weights - min_val) / (max_val - min_val)
-        args.debug_weight0 = scaled_weights
-    
 
     """ option """
     # save 
@@ -237,11 +170,17 @@ def main(args):
         # print('saved: ' + save_path+name)
     # render
     else: 
-        from etc.etc import render_result
+        from etc.etc import render_result, render_result_and_compare
         characters, motions = \
             render_result(args, 
                         source0_character, source1_character, target0_character, target1_character, 
                         source_motion0, source_motion1, output_motion0, output_motion1) 
+            
+        # characters, motions = \
+        #     render_result_and_compare(args, 
+        #                               source0_character, source1_character, target0_character, target1_character, deepcopy(target0_character), deepcopy(target1_character),
+        #                 source_motion0, source_motion1, output_motion0, output_motion1, output_motion0_, output_motion1_)
+            
         app = MyApp(characters, motions, args, net)
         app_manager.run(app)
 

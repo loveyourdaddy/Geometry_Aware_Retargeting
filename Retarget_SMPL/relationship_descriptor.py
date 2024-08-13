@@ -25,7 +25,7 @@ def retarget_one_motion(args,
         # tgt
         tgt_descriptor_vids = geo_target_ptn.anchor_vids
         
-    len_frame, len_anchor = len(source_motion1.poses), len(descriptor_vids) # anchor_vids
+    len_frame, len_anchor = len(source_motion1.poses), len(descriptor_vids)
     batch = torch.tensor([0]).repeat(len_frame, len_anchor).to(args.device)
     frame = torch.arange(len_frame).unsqueeze(-1).repeat(1, len_anchor).to(args.device)
 
@@ -49,7 +49,6 @@ def retarget_one_motion(args,
     geo_target_ptn.set_pose_by_source_batch_frame(local_R1.unsqueeze(0), root_p1.unsqueeze(0))
     updated_charB_vpos1 = geo_target_ptn.get_positions_from_vids(tgt_descriptor_vids.repeat(len_frame, 1), batch, frame)
     
-
     # 예외처리: descriptor을 특정 joint로 제한하고 싶을때 # TODO check
     # if source_motion0.name in root_motion_by_root_vids: 
     #     len_root_anchor = len(geo_source_ptn.root_descriptor_vids)
@@ -62,7 +61,7 @@ def retarget_one_motion(args,
     #     dist_root_desc1_to_joint0 = torch.norm(root_desc1_to_joint0, dim=-1)  # ||pj - di||
         
     #     updated_root_charB_vpos1 = geo_target_ptn.get_positions_from_vids(root_descriptor_vids.repeat(len_frame, 1), root_batch, root_frame)
-        
+    
     """ update motion A """
     # charA, motion0
     _, _, source_global_p0 = get_rootP_localR_globalP_from_motion(args, updated_motion0.poses)
@@ -86,8 +85,15 @@ def retarget_one_motion(args,
         #                     geo_target_ptn, updated_root_charB_vpos1, # dfm
         #                     update_part="root", update_joints=root_joints,
         #                     root_r2_dist=1/10, root_pow_lambda=1/10)
-            
-        ret_global_p0 = lift_by_pene_val(args, ret_global_p0, updated_motion0, source_motion0.skeleton.parent_idx, end_effectors=[4,8])
+        
+        # pene
+        # heel
+        # ret_global_p0 = lift_by_pene_val(
+        #     args, ret_global_p0, updated_motion0, args.foot_heel_index, args.pene_ths_heel)
+        # # ee joint
+        # ret_global_p0 = lift_by_pene_val(
+        #     args, ret_global_p0, updated_motion0, args.foot_ee_index, args.pene_ths)
+        # TODO: check other joint: 손...
         
     else:
         ret_global_p0 = source_global_p0
@@ -101,11 +107,7 @@ def retarget_one_motion(args,
                             geo_target_ptn, updated_charB_vpos1,
                             update_part="spine", update_joints=spine_joints,
                             limb_r2_dist=1/10, limb_pow_lambda=1/10)
-        # floor penetration resolving (if source motion is in floor pene state, lift up)
-        # ret_global_p0 = lift_root_by_pene_val(args, ret_global_p0, pene_ths=0.03) # 0.1 
-    else:
-        pass
-    
+
     # update limb
     ret_global_p0 = \
         update_by_part(args, tgt_descriptor_vids,
@@ -114,7 +116,13 @@ def retarget_one_motion(args,
                         geo_target_ptn, updated_charB_vpos1,
                         update_part="limb", update_joints=limb_joints,
                         limb_r2_dist=1/10, limb_pow_lambda=1/10)
-    # ret_global_p0 = lift_by_pene_val(args, ret_global_p0, source_motion0.skeleton.parent_idx) # 여기에만 있으면 되는게 아닌가 싶어.
+    # pene 
+    # heel 
+    ret_global_p0 = lift_by_pene_val(
+        args, ret_global_p0, updated_motion0, args.foot_heel_index, args.pene_ths_heel)
+    # ee joint
+    ret_global_p0 = lift_by_pene_val(
+        args, ret_global_p0, updated_motion0, args.foot_ee_index, args.pene_ths)
     
     # edit by range 
     if args.update_by_clampping_range:
@@ -215,7 +223,6 @@ def update_by_part(args, anchor_vids,
         diff = scale_diff_by_dist(diff, torch.min(dist_desc_to_joint, dim=-1)[0])  # .unsqueeze(-1).repeat(1,1,3)
         output_global_p0 = source_global_p0 + diff
         
-        # update
         # update position by index
         output_global_p0 = update_absolute_p_by_index(source_global_p0, output_global_p0, update_joints)
         
@@ -227,31 +234,31 @@ def update_by_part(args, anchor_vids,
 def lift_by_pene_val(args, ret_global_p0, motion, end_effectors, pene_ths):
     parent_idxs = motion.skeleton.parent_idx
     
+    # parent index of moving joint
     joint_before_ee = []
     for ee in end_effectors:
         joint_before_ee.append(ee-1)
         
-    len_frame = ret_global_p0.shape[0]
-    pene_tensor = torch.zeros(len_frame, 22).to(args.device)
+    # pene tensor 
+    pene_ths = torch.tensor(pene_ths).repeat(22).to(args.device)
     
-    pene_ths_tensor = torch.tensor(args.pene_ths).repeat(22).to(args.device)
-    pene_ths_tensor[joint_before_ee] = pene_ths
+    # update pene value
+    len_frame = ret_global_p0.shape[0]
     for f in range(len_frame):
-        pene_idxs = torch.where(ret_global_p0[f, :, 1] < pene_ths_tensor)
+        pene_idxs = torch.where(ret_global_p0[f, :, 1] < pene_ths)
         if pene_idxs[0].shape == 0 or pene_idxs[0].size()[0] ==0:
             continue
         
         # pene val -> parent로 전파해주기
         penetrated_disp = torch.zeros(22).to(args.device)
-        pene_values = (ret_global_p0[f][pene_idxs][:, 1] - pene_ths_tensor[pene_idxs[0]])
+        pene_values = (ret_global_p0[f][pene_idxs][:, 1] - pene_ths[pene_idxs[0]]) # 음수
         for i, pene_idx in enumerate(pene_idxs[0]):
             diff_val = pene_values[i]
+            
             # update to joint and parent (until root)
             penetrated_disp[pene_idx] = diff_val
-            parent_recursive_update(parent_idxs, pene_idx, penetrated_disp, diff_val)
-            # update
-            pene_tensor[f, pene_idx] = 1
-        ret_global_p0[f, :, 1] -= penetrated_disp
+            parent_recursive_update(parent_idxs, pene_idx, penetrated_disp, diff_val) # get reculsive displacement
+        ret_global_p0[f, :, 1] -= penetrated_disp # 양수
         
         # position updated by offset
         pose = motion.poses[f]
@@ -267,36 +274,18 @@ def lift_by_pene_val(args, ret_global_p0, motion, end_effectors, pene_ths):
         for i, pene_idx in enumerate(pene_idxs[0]):
             grand_parent_idx = parent_idxs[parent_idxs[pene_idx]]
             if pene_idx in end_effectors:
-                pose.two_bone_ik(grand_parent_idx, pene_idx, ret_global_p0[f, pene_idx])
+                pose.two_bone_ik(grand_parent_idx, pene_idx, ret_global_p0[f, pene_idx]) # TODO pene_idx: recursive한 parent에 대해서 다 확인?
             else:
                 pose.two_bone_ik(grand_parent_idx, pene_idx, ret_global_p0[f, pene_idx], use_forward=True)
     
-    _, _, ret_global_p0 = get_rootP_localR_globalP_from_motion(args, motion.poses)
+    _, _, ret_global_p0 = get_rootP_localR_globalP_from_motion(args, motion.poses) # return motion
     
-    # smoothing TODO 
-    # # range 
-    # pene_idx = torch.where(pene_tensor)
-    # pene_frame = pene_idx[0]
-    # pene_jid = pene_idx[1]
-    
-    # prop_range = 3
-    # for i in range(1, prop_range+1):
-    #     if f+i >= len_frame:
-    #         break
-    #     weight = i/(prop_range+1)
-    #     ret_global_p0[pene_frame+i, pene_jid, 1] = (weight)*ret_global_p0[pene_frame+i, pene_jid, 1] + (1-weight) * ret_global_p0[pene_frame, pene_jid, 1] 
-    # for i in range(1, prop_range+1):
-    #     if f-i < 0:
-    #         break
-    #     weight = i/(prop_range+1)
-    #     ret_global_p0[pene_frame-i, pene_jid, 1] = (weight)*ret_global_p0[pene_frame-i, pene_jid, 1] + (1-weight) * ret_global_p0[pene_frame, pene_jid, 1] 
-        
     return ret_global_p0
 
 # parent에 대해서 전달, disp가 이미 값이 크다면 그냥 두기. 
 def parent_recursive_update(parent_idxs, j, penetrated_disp, diff_val):
     parent_idx = parent_idxs[j]
-    if parent_idx != 0: # 
+    if parent_idx != 0:
         if penetrated_disp[parent_idx] > diff_val:
             penetrated_disp[parent_idx] = diff_val
         parent_recursive_update(parent_idxs, parent_idx, penetrated_disp, diff_val)
@@ -519,22 +508,22 @@ def update_absolute_p_by_index(origin_motion, updated_motion, index):
 
 """ pene"""
 def resolve_ground_pene(args, output_motion0, output_motion1):
-    # Post-proces: ground 에 대한 ik
+    """ Post-proces: joint별 ground pene ths에 대한 ik """
     
     # joints
-    end_effector   = [4, 8, 16, 17, 20, 21]
-    joint_before_ee = [3, 7, 15, 16, 19, 20]
+    end_effector    = [4, 8,] # 16, 17, 20, 21
+    joint_before_ee = [3, 7,] # 15, 16, 19, 20
     
     _, _, output_global_p0 = get_rootP_localR_globalP_from_motion(args, output_motion0.poses)
     _, _, output_global_p1 = get_rootP_localR_globalP_from_motion(args, output_motion1.poses)
     
-    # end effector
-    output_global_p0 = lift_by_pene_val(args, output_global_p0, output_motion0, end_effector, args.pene_ths)
-    output_global_p1 = lift_by_pene_val(args, output_global_p1, output_motion1, end_effector, args.pene_ths)
-    
     # joint before end effector
     output_global_p0 = lift_by_pene_val(args, output_global_p0, output_motion0, joint_before_ee, args.pene_ths_heel)
     output_global_p1 = lift_by_pene_val(args, output_global_p1, output_motion1, joint_before_ee, args.pene_ths_heel)
+    
+    # end effector
+    output_global_p0 = lift_by_pene_val(args, output_global_p0, output_motion0, end_effector, args.pene_ths)
+    output_global_p1 = lift_by_pene_val(args, output_global_p1, output_motion1, end_effector, args.pene_ths)
     
     # update 
     update_motion_by_global_p(output_motion0, output_global_p0)

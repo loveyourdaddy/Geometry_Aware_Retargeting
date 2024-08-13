@@ -1,8 +1,8 @@
 import sys
 import os
-
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 sys.path.append('../')
+sys.path.append('Retarget_SMPL/')
 
 from pymovis.vis.appmanager import AppManager
 from pymovis.vis.app import MyApp
@@ -14,8 +14,6 @@ from option_motion import example_bvh, start_frame_dict, end_frame_dict,\
 import option_parser
 from pymovis.motion.ops.npmotion import R_to_R6
 from pymovis.motion.data import bvh
-
-# from Geometry.compare_geometry import collision_check_and_resolve
 
 
 def retarget_smpl(args,
@@ -36,11 +34,11 @@ def retarget_smpl(args,
 
     time1 = time.time()
     # Deformed (charB, motion1): anchor A <-> Joint B
-    edited_motion1 = retarget_one_motion(args,
-                                         geo_source0, geo_target0,
-                                         motion1, motion0,
-                                         edited_motion1, edited_motion0,
-                                         root_joints=dfm_root_joints, spine_joints=dfm_spine_joints, limb_joints=dfm_limb_joints)
+    # edited_motion1 = retarget_one_motion(args,
+                                        #  geo_source0, geo_target0,
+                                        #  motion1, motion0,
+                                        #  edited_motion1, edited_motion0,
+                                        #  root_joints=dfm_root_joints, spine_joints=dfm_spine_joints, limb_joints=dfm_limb_joints)
     time2 = time.time()
     
     print("retarget_one_motion time: {} and {}".format(time1-time0, time2-time1))
@@ -118,7 +116,6 @@ def scale_character(args, character, leg_scale, body_scale, hand_scale):
     for joint in args.hand_joints:
         character.meshes[0].source_skeleton.joints[joint].offset *= hand_scale
 
-
 def scale_offset_and_root(args, motion, root_scale, leg_scale, body_scale, hand_scale):
     # edit character skeleton
     scale_offset(args, motion, leg_scale, body_scale, hand_scale)
@@ -180,15 +177,19 @@ if __name__ == '__main__':
     if args.adapt_char == "SMPLx":
         from datasets.character_functions import get_a_smpl_character
 
+        # source 
+        src_name = "SMPLx"
+        character_src, _, geometry_src = get_a_smpl_character(args, src_name)
+
+        # target 
         # ptn
         ptn_name = "SMPLx"  # Ybot
-        character_ptn, _, geometry_nor = get_a_smpl_character(args, ptn_name)
-
+        character_tgt_ptn, _, geometry_tgt_nor = get_a_smpl_character(args, ptn_name)
         # dfm
-        deformed_name = args.target_characters[1]  # 0 1
-        index = -1  # 0 #
+        deformed_name = args.target_characters[0]  # 0 1
+        index = 0 # -1
         role_change = False  # True False
-        character_dfm, Tpose_dfm, geometry_dfm = get_a_smpl_character(args, deformed_name)
+        character_tgt_dfm, Tpose_tgt_dfm, geometry_tgt_dfm = get_a_smpl_character(args, deformed_name)
 
     else:
         from datasets.character_functions import get_a_character
@@ -197,8 +198,7 @@ if __name__ == '__main__':
         )
         # source 
         src_name = "Ybot"
-        character_src_ptn, _, geometry_src_nor = get_a_character(args, src_name, template_Tpose)
-        # one more 
+        character_src, _, geometry_src = get_a_character(args, src_name, template_Tpose)
         
         # target 
         # ptn
@@ -275,17 +275,16 @@ if __name__ == '__main__':
     """ retarget """
     root_p0, local_R0, root_p1, local_R1, motion0, motion1, motion_ptn, motion_dfm = \
         retarget_smpl(args,
-                      geometry_src_nor, geometry_src_nor, geometry_tgt_nor, geometry_tgt_dfm,
+                      geometry_src, geometry_src, geometry_tgt_nor, geometry_tgt_dfm,
                       motion0, motion1, motion_ptn, motion_dfm,
                       render=True, pene=False,
                       ptn_root_joints=ptn_root_joints, ptn_spine_joints=ptn_spine_joints, ptn_limb_joints=ptn_limb_joints,
                       dfm_root_joints=dfm_root_joints, dfm_spine_joints=dfm_spine_joints, dfm_limb_joints=dfm_limb_joints,)
-    #geometry_nor, geometry_nor, geometry_nor, geometry_dfm,
     
     # render
     characters, motions = \
         render_result(args, 
-                      character_src_ptn, character_src_ptn, character_tgt_ptn, character_tgt_dfm,
+                      character_src, character_src, character_tgt_ptn, character_tgt_dfm,
                       motion0, motion1, motion_ptn, motion_dfm)
     # character_ptn, character_ptn, character_ptn,  character_dfm
     app = MyApp(characters, motions, args)
