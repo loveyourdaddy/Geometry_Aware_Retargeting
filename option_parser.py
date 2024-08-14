@@ -15,11 +15,11 @@ def get_parser():
 
     # test
     parser.add_argument('--test_proj',  type=str, default='240808_Gt1Fk100Anchor10_Root10Foot10_char01')
-    parser.add_argument('--test_epoch', type=int, default=8000)
+    parser.add_argument('--test_epoch', type=int, default=2500) # 8000
 
     # character
     parser.add_argument('--test_type', type=str, default="Mixamo") # SMPLx Mixamo
-    parser.add_argument('--test_char', type=str, default="small")  # normal small fat
+    parser.add_argument('--test_char', type=str, default="normal")  # normal small fat
     parser.add_argument('--role_change', type=str_to_bool, default=False)  # True False
     # save
     parser.add_argument('--save', type=str_to_bool, default=False)
@@ -44,8 +44,8 @@ def get_parser():
     parser.add_argument('--motion0', type=str, default="")
     parser.add_argument('--motion1', type=str, default="")
     parser.add_argument('--SMPLx_scaled', type=str_to_bool, default=False)
-    parser.add_argument('--train_one_chararacter_only',
-                        type=str_to_bool, default=False)
+    parser.add_argument('--SMPLx_scale', type=float, default=1.3) # 0.6 1.3
+    parser.add_argument('--train_one_chararacter_only', type=str_to_bool, default=False)
 
     """ lambda """
     # base loss

@@ -22,8 +22,6 @@ def retarget_smpl(args,
                   render=True, pene=False,
                   ptn_root_joints=None, ptn_spine_joints=None, ptn_limb_joints=None,
                   dfm_root_joints=None, dfm_spine_joints=None, dfm_limb_joints=None,):
-    import time 
-    time0 = time.time()
     """ edit motion """
     # Partner (charA, motion0) : joint A <-> anchor B
     edited_motion0 = retarget_one_motion(args,
@@ -32,18 +30,13 @@ def retarget_smpl(args,
                                          edited_motion0, edited_motion1,
                                          root_joints=ptn_root_joints, spine_joints=ptn_spine_joints, limb_joints=ptn_limb_joints)
 
-    time1 = time.time()
     # Deformed (charB, motion1): anchor A <-> Joint B
-    # edited_motion1 = retarget_one_motion(args,
-                                        #  geo_source0, geo_target0,
-                                        #  motion1, motion0,
-                                        #  edited_motion1, edited_motion0,
-                                        #  root_joints=dfm_root_joints, spine_joints=dfm_spine_joints, limb_joints=dfm_limb_joints)
-    time2 = time.time()
-    
-    print("retarget_one_motion time: {} and {}".format(time1-time0, time2-time1))
-    print("total time: {}".format(time2-time0))
-    
+    edited_motion1 = retarget_one_motion(args,
+                                         geo_source0, geo_target0,
+                                         motion1, motion0,
+                                         edited_motion1, edited_motion0,
+                                         root_joints=dfm_root_joints, spine_joints=dfm_spine_joints, limb_joints=dfm_limb_joints)
+
     # if pene:렁
     #     joints = [15,16,17, 19,20,21]
     #     ptn_joints = list(range(22))

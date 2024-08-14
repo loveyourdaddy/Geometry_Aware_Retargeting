@@ -27,6 +27,7 @@ def main(args):
     else:
         source0_motion_names = [args.motion0]
         source1_motion_names = [args.motion1]
+
     print("> proj_name: ", args.test_proj)
     print("> character: ", args.test_type, args.test_char)
     print("> motion: ", source0_motion_names[0])
@@ -84,31 +85,20 @@ def main(args):
     net.load(args.test_proj + '/' , args.test_epoch, device=args.device)
     net.eval()
 
-    import time
-    time0 = time.time()
-    
     # forward
     jit_output_p0, jit_output_R0, \
     jit_output_p1, jit_output_R1 = \
         net.forward(dataset)
-    time1 = time.time()
     
     output_motion0, output_motion1 = \
         make_new_motions(args, jit_output_p0, jit_output_R0, 
                         jit_output_p1, jit_output_R1, 
                         target0_character, target1_character, 
                         source_motion0, source_motion1)
-    time2 = time.time()
-    print("retarget_one_motion time: {} and {}".format(time1-time0, time2-time1))
-    print("total time: {}".format(time2-time0))
-    # output_motion0_, output_motion1_ = deepcopy(output_motion0), deepcopy(output_motion1)
     
     # post processing
     output_motion0, output_motion1 = \
         resolve_ground_pene(args, output_motion0, output_motion1)
-    
-    time3 = time.time()
-    print("pene time: {}".format(time3-time2))
     
     # test with aura mesh
     if False:
@@ -167,7 +157,6 @@ def main(args):
         np.save(save_path+name+'jit_output_p1', jit_output_p1.detach().numpy())
         np.save(save_path+name+'jit_output_R0', jit_output_R0.detach().numpy())
         np.save(save_path+name+'jit_output_R1', jit_output_R1.detach().numpy())
-        # print('saved: ' + save_path+name)
     # render
     else: 
         from etc.etc import render_result, render_result_and_compare
@@ -175,12 +164,7 @@ def main(args):
             render_result(args, 
                         source0_character, source1_character, target0_character, target1_character, 
                         source_motion0, source_motion1, output_motion0, output_motion1) 
-            
-        # characters, motions = \
-        #     render_result_and_compare(args, 
-        #                               source0_character, source1_character, target0_character, target1_character, deepcopy(target0_character), deepcopy(target1_character),
-        #                 source_motion0, source_motion1, output_motion0, output_motion1, output_motion0_, output_motion1_)
-            
+        
         app = MyApp(characters, motions, args, net)
         app_manager.run(app)
 
