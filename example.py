@@ -23,39 +23,30 @@ template = bvh.load(
 # char
 # args.geo_preprocess = True
 # args.bvh_preprocess = True
-names = ["Ybot", "Amy"] # ["SMPLx", "SMPLx"] # Remy Leonard Amy Ortiz
+names = ["SMPLx_fat", "SMPLx_fat"] # Ybot Amy SMPLx Remy Leonard Amy Ortiz
 characters, motions = [], []
 geos = []
 vids = []
 vpositions = []
 after_vpositions = []
-print(example_bvh)
-motion_name = "Tpose" # list(example_bvh)[0] # "back_lift001_S1"
+motion_name = "Tpose"
 
-# TODO: interaction 이름을 각각 가져오기.
-for character_name0 in names:
-    source0_character, motion0, _ = get_a_character(args, character_name0, template)
-    # source0_character, motion0, geo0 = get_a_character(args, character_name0, template)
-    motion0 = get_interaction_motions_from_list(character_name0, [motion_name])[0]
-    source0_character.set_source_skeleton(motion0.skeleton, MIXAMO_BVH_TO_FBX)
-    # motion0 = refine_motion(motion0, template)
-    
+for i, character_name0 in enumerate(names):
+    if i==0:
+        mesh_scale = 1
+    else:
+        mesh_scale = 1.1
+
+    source0_character, motion0, _ = get_a_character(args, character_name0, template, mesh_scale) # 
+    # motion0 = get_single_motion_from_list("SMPLx", [motion_name])[0] # character_name0 interaction
+    source0_character.set_source_skeleton(motion0.skeleton, "") # MIXAMO_BVH_TO_FBX
     characters.append(source0_character)
     motions.append(motion0)
-    # print(character_name0, (geo0.f_length))
-    
-    # vid = geo0.anchor_vids
-    # root_p, local_R, _ = get_rootP_localR_globalP_from_motion(args, motion0.poses)
-    # geo0.set_pose_by_source_batch_frame(local_R[None, ...], root_p[None, ...])
-    # f = 517
-    # vpos = geo0.get_positions_from_vids(torch.tensor(np.array(geo0.anchor_vids)), torch.tensor([0]), torch.tensor([f]))
-    # # print(vpos)
-    # # vpos = vpos[30]
-    # # vpositions.append(vpos)
-    # args.debug_points0 = vpos
 
+distance = 3
 for i, motion in enumerate(motions):
     for pose in motion.poses:
-        pose.translate_root_p([i*2, 0, 0])
+        pose.translate_root_p([i*distance, 0, 0])
+
 app = MyApp(characters, motions, args)
 app_manager.run(app)

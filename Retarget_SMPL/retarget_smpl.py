@@ -179,7 +179,7 @@ if __name__ == '__main__':
         ptn_name = "SMPLx"  # Ybot
         character_tgt_ptn, _, geometry_tgt_nor = get_a_smpl_character(args, ptn_name)
         # dfm
-        deformed_name = args.target_characters[0]  # 0 1
+        deformed_name = args.target_characters[1]  # 0 1
         index = 0 # -1
         role_change = False  # True False
         character_tgt_dfm, Tpose_tgt_dfm, geometry_tgt_dfm = get_a_smpl_character(args, deformed_name)
@@ -200,7 +200,7 @@ if __name__ == '__main__':
         # dfm
         deformed_name = "Amy" # Ortiz Amy
         character_tgt_dfm, Tpose_tgt_dfm, geometry_tgt_dfm = get_a_character(args, deformed_name, template_Tpose)
-        
+
     # load motion
     from datasets.motion_functions import get_interaction_motions_from_list
     motion_name0 = list(example_bvh.keys())[0]
@@ -236,17 +236,18 @@ if __name__ == '__main__':
 
     if args.adapt_char == "SMPLx":
         # scale
-        if deformed_name == "SMPLx":
-            scales = np.load("./scale_values/scales.npy")
-        else:
-            scales = np.load("./scale_values/scales_fat.npy")
+        # if deformed_name == "SMPLx":
+        #     scales = np.load("./scale_values/scales.npy")
+        # else:
+        #     scales = np.load("./scale_values/scales_fat.npy")
 
-        leg_idx = index
-        body_idx = index
-        hand_idx = index
-        leg_scale = scales[leg_idx]
-        body_scale = scales[body_idx]
-        hand_scale = scales[hand_idx]
+        # leg_idx = index
+        # body_idx = index
+        # hand_idx = index
+        # leg_scale = scales[leg_idx]
+        # body_scale = scales[body_idx]
+        # hand_scale = scales[hand_idx]
+        leg_scale, body_scale, hand_scale = 1, 1, 1
         print("leg_scale {}, body_scale {}, hand_scale {} ".format(
             leg_scale, body_scale, hand_scale))
 
@@ -279,6 +280,7 @@ if __name__ == '__main__':
         render_result(args, 
                       character_src, character_src, character_tgt_ptn, character_tgt_dfm,
                       motion0, motion1, motion_ptn, motion_dfm)
+    
     # character_ptn, character_ptn, character_ptn,  character_dfm
     app = MyApp(characters, motions, args)
     app_manager.run(app)

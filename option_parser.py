@@ -15,10 +15,10 @@ def get_parser():
 
     # test
     parser.add_argument('--test_proj',  type=str, default='240808_Gt1Fk100Anchor10_Root10Foot10_char01')
-    parser.add_argument('--test_epoch', type=int, default=2500) # 8000
+    parser.add_argument('--test_epoch', type=int, default=8000)
 
     # character
-    parser.add_argument('--test_type', type=str, default="Mixamo") # SMPLx Mixamo
+    parser.add_argument('--test_type', type=str, default="SMPLx") # SMPLx Mixamo
     parser.add_argument('--test_char', type=str, default="normal")  # normal small fat
     parser.add_argument('--role_change', type=str_to_bool, default=False)  # True False
     # save
@@ -36,15 +36,14 @@ def get_parser():
     parser.add_argument('--weight_sharing', type=str_to_bool, default=True)
     parser.add_argument('--temporal_attn',  type=str_to_bool, default=False)
     parser.add_argument('--char_info', type=str, default="length")
-    parser.add_argument('--normalize_char_info',
-                        type=str_to_bool, default=False)
+    parser.add_argument('--normalize_char_info', type=str_to_bool, default=False)
     parser.add_argument('--data_normalized', type=str_to_bool, default=False)
-    parser.add_argument('--target_characters',
-                        type=arg_as_list, default=["SMPLx", "SMPLx_fat"])
+    parser.add_argument('--target_characters', type=arg_as_list, default=["SMPLx", "SMPLx_fat"])
     parser.add_argument('--motion0', type=str, default="")
     parser.add_argument('--motion1', type=str, default="")
     parser.add_argument('--SMPLx_scaled', type=str_to_bool, default=False)
-    parser.add_argument('--SMPLx_scale', type=float, default=1.3) # 0.6 1.3
+    parser.add_argument('--SMPLx_scale', type=float, default=1.0) # 0.6 1.3
+    parser.add_argument('--SMPLx_mesh_scale', type=float, default=1.0)
     parser.add_argument('--train_one_chararacter_only', type=str_to_bool, default=False)
 
     """ lambda """
@@ -79,13 +78,11 @@ def get_parser():
 
     parser.add_argument('--window_size', type=int, default=64)
     parser.add_argument('--batch_size', type=int, default=16)
-    parser.add_argument('--sepearte_train_data',
-                        type=str_to_bool, default=False)
+    parser.add_argument('--sepearte_train_data', type=str_to_bool, default=False)
     parser.add_argument('--train_data_ratio', type=float, default=0.9)
 
     """ RD """
-    parser.add_argument('--update_by_clampping_range',
-                        type=str_to_bool, default=True)
+    parser.add_argument('--update_by_clampping_range', type=str_to_bool, default=True)
     parser.add_argument('--interaction_start_frame', type=int, default=-1)
     parser.add_argument('--interaction_end_frame', type=int, default=-1)
     parser.add_argument('--num_joint', type=int, default=22)
@@ -95,18 +92,13 @@ def get_parser():
     # part
     parser.add_argument('--root_joint', type=list, default=[0])
     parser.add_argument('--RD_spine_joints', type=list, default=[10, 11])
-    parser.add_argument('--RD_hand_joints', type=list,
-                        default=[16, 17, 20, 21])
-    parser.add_argument('--RD_leg_joints', type=list,
-                        default=[2, 3, 4, 6, 7, 8])
+    parser.add_argument('--RD_hand_joints', type=list, default=[16, 17, 20, 21])
+    parser.add_argument('--RD_leg_joints', type=list, default=[2, 3, 4, 6, 7, 8])
 
     # joints for augment scaling
-    parser.add_argument('--leg_joints', type=list,
-                        default=[1, 2, 3, 4, 5, 6, 7, 8])  # 12,13
-    parser.add_argument('--body_joints', type=list,
-                        default=[0, 9, 10, 11, 12, 13])
-    parser.add_argument('--hand_joints', type=list,
-                        default=[14, 15, 16, 17, 18, 19, 20, 21])
+    parser.add_argument('--leg_joints', type=list, default=[1, 2, 3, 4, 5, 6, 7, 8])  # 12,13
+    parser.add_argument('--body_joints', type=list, default=[0, 9, 10, 11, 12, 13])
+    parser.add_argument('--hand_joints', type=list, default=[14, 15, 16, 17, 18, 19, 20, 21])
     parser.add_argument('--foot_ee_index', type=list, default=[4, 8])   # foot
     parser.add_argument('--foot_heel_index', type=list, default=[3, 7]) # heel
 
@@ -134,7 +126,7 @@ def get_parser():
     parser.add_argument('--debug_weight0', type=list, default=[])
 
     ''' adaptation '''
-    parser.add_argument('--adapt_char', type=str, default='Mixamo')  # SMPLx, Mixamo
+    parser.add_argument('--adapt_char', type=str, default='SMPLx')  # SMPLx, Mixamo
 
     return parser
 
