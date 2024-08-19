@@ -18,103 +18,100 @@ left_hand_joints = [14, 15, 16, 17]
 right_hand_joints = [18, 19, 20, 21]
 joint_chains = [body_joints, left_leg_joints, right_leg_joints, left_hand_joints, right_hand_joints]
 
-# optimization과 grad가 같은 변수를 사용하기 위해 
-col_frame  = None
-src_colliding_vpos = None
-src_colliding_vids = None
-tgt_auramesh = None
-jids1 = None
-pose = None
-root_p = None
-f = None
-check_col = None
-
-# compute loss func, grad
-def function1_grad(x, grad, param=None):
-    global count_iter
-    global check_col
-    global target
-    func = 0
-    len_rot_x = 198 # 66
+""" 
+1. rec 
+2. col_cids의 position - col position
+"""
+def optimize_motion(src_motion, tgt_motion, ptn_motion, tgt_auramesh, ptn_auramesh,
+                    all_col_vids, ptn_all_col_vids,
+                    col_frame, tgt_jids, ptn_jids):
     
-    # parameters
-    lamda_1 = 3.0 # 5000.0 delta값으로 바꾼다면 lambda값을 다시 확인 필요.
-    # lamda_2 = 1.0
-    # lamda_3 = 0.1
-    zero_tensor = torch.tensor([0])[None, None, :]
-    
-    
-    # target0. follow source motion
-    for i in range(198):
-        func += abs(x[i] - target[i])
-        grad[i] = x[i] - target[i]
+    # compute loss func, grad
+    def function1_grad(x, grad, param=None):
+        nonlocal f, pose, target #  tgt_root_p, 
+        func = 0
+        len_rot_x = 198 # 66
         
-    # target1. collision cpos
-    # energy term
-    collision_preserving = False 
-    if collision_preserving:
-        col_ids = np.where(col_frame == f)[0]
-        if col_ids.shape[0] > 0:
-            # check_col = True
+        # parameters
+        lamda_1 = 3.0 # 5000.0
+
+        # target0. follow source motion
+        for i in range(len_rot_x):
+            val0 = abs(x[i] - target[i])
+            func += val0
+            grad[i] = x[i] - target[i]
+        
+        # target1. collision cpos
+        collision_preserving = False # False 
+        if collision_preserving:
+            zero_tensor = torch.tensor([0])[None, None, :]
+            col_ids = np.where(col_frame == f)[0]
             for cid in col_ids:
-                # src 
-                src_vpos = np.array(src_colliding_vpos[cid].to('cpu'))
-                src_vids = src_colliding_vids[cid]
-                src_vids = src_vids[None, None, :].to('cpu')
-                len_vids = len(src_vids)
+                # updated own pose 
+                col_vids = all_col_vids[cid]
+                len_vids = len(col_vids)
+                col_vids = col_vids[None, None, :]
+                batch = zero_tensor.repeat(1, 1, len_vids)
                 
-                count_iter += 1
-                # aaxis -> R  # this part is using (torch)
-                delta_aaxis = torch.tensor(x).reshape(22, 3) 
-                delta_angle = torch.norm(delta_aaxis, dim=-1)
-                delta_angle[torch.where(delta_angle < 1e-6)] = 1e-6
-                delta_axis = delta_aaxis / delta_angle[:, None]
-                delta_local_R = torchmotion.A_to_R(delta_angle, delta_axis)
+                # optimzied pose
+                target_local_R = torch.tensor(x).reshape(22, 3, 3)
                 
-                # update
-                local_R = delta_local_R @ pose.local_R
-                
-                # set pose
-                tgt_auramesh.set_pose_by_source_batch_frame(local_R[None, None, :], root_p[None, None, :])
+                # update auramesh from updated pose
+                tgt_auramesh.set_pose_by_source_batch_frame(
+                    target_local_R[None, None, :], 
+                    torch.tensor(tgt_root_p[None, None, :]))
+                frame = torch.tensor([0])[None, None, :].repeat(1, 1, len_vids)
                 
                 # tgt cpos
+                tgt_vpos = tgt_auramesh.get_positions_from_vids(col_vids, batch, frame)[0,0]
+                tgt_vpos = np.array(tgt_vpos)
+                
+                
+                # ptn_vpos
+                # updated own pose 
+                col_vids = ptn_all_col_vids[cid]
+                len_vids = len(col_vids)
+                col_vids = col_vids[None, None, :]
                 batch = zero_tensor.repeat(1, 1, len_vids)
-                frame = zero_tensor.repeat(1, 1, len_vids)
-                tgt_cpos = tgt_auramesh.get_positions_from_vids(src_vids, batch, frame)[0,0]
-                tgt_cpos = np.array(tgt_cpos.to('cpu'))
+                frame = torch.tensor([f])[None, None, :].repeat(1, 1, len_vids)
+                
+                ptn_vpos = ptn_auramesh.get_positions_from_vids(col_vids, batch, frame)[0,0]
+                ptn_vpos = np.array(ptn_vpos)
                 
                 
-                # """ update energy term"""
-                # value
+                # energy term
                 # num_col = src_vpos.shape[0]
-                func += lamda_1 * np.sum(np.square(src_vpos - tgt_cpos)) # *1/num_col
+                val1 = np.sum(np.square(ptn_vpos - tgt_vpos)) # *1/num_col lamda_1 * 
+                func += val1
                 
-                # grad 
-                # ee joint 
-                ee_joint = jids1[cid]
-                eeT = np.array(tgt_auramesh.global_p[0,0,ee_joint].to('cpu'))
+                # grad
+                # effector 
+                ee_joint = tgt_jids[cid] # TODO: joint chain
+                eeT = np.array(tgt_auramesh.global_p[0, 0, ee_joint])
+                
                 # select kinematic chain
                 for chain in joint_chains:
                     if ee_joint in chain:
                         joint_chain = chain
                         break
                 inchain_idx = joint_chain.index(ee_joint)
-                joint_chain = joint_chain[:inchain_idx+1]
-                # joint chain다시 만들기, reverse order for loop
+                joint_chain = joint_chain[:inchain_idx+1] # joint chain다시 만들기, reverse order for loop
                 
                 # dLdP: (1, num_joint*3)
-                dLdP = lamda_1*2*np.mean((src_vpos - tgt_cpos), axis=0)[None, :] # 1/num_col*
+                dLdP = lamda_1*2 * np.mean((ptn_vpos - tgt_vpos), axis=0)[None, :] # 1/num_col*
                 
                 # compute dPdX (num_joint*3, num_joint_chain*3)
                 dPdX = np.zeros((3, len_rot_x))
                 for j in reversed(joint_chain):
-                    x_start = j*3
-                    x_end = (j+1)*3
+                    x_start = j*9
+                    x_end = (j+1)*9
+                    
                     # dist 
-                    curT = np.array(tgt_auramesh.global_p[0,0,j].to('cpu'))
+                    curT = np.array(tgt_auramesh.global_p[0, 0, j])
                     dist = eeT - curT # dim: (3,)
+                    
                     # origin
-                    quat = R_to_Q(np.array(local_R[j].cpu())) 
+                    quat = R_to_Q(np.array(target_local_R[j])) 
                     axis, angle = Q_to_A(quat)
                     aaxis = axis * angle
                     quat_inv = np.array([quat[0], -quat[1], -quat[2], -quat[3]])
@@ -124,6 +121,7 @@ def function1_grad(x, grad, param=None):
                         updated_aaxis[eid] += 1.0
                         updated_angle, updated_axis = np.linalg.norm(updated_aaxis), updated_aaxis / np.linalg.norm(updated_aaxis)
                         updated_quat = A_to_Q(updated_angle, updated_axis)
+                        
                         # delta
                         delta_quat = quaternion_multiply(quat_inv, updated_quat) # 뒤집어 보기
                         delta_axis, delta_angle = Q_to_A(delta_quat)
@@ -141,35 +139,13 @@ def function1_grad(x, grad, param=None):
                     dLdX = dLdP @ dPdX # (1, num_joint_chain*3)
                     for xid in range(len_rot_x):
                         grad[xid] += lamda_1*(dLdX[0, xid])
-    # else:
-    #     check_col = False        
-    
-    return func
+                # import pdb; pdb.set_trace()
+                # grad1 = np.mean(ptn_vpos - tgt_vpos, axis=0)
+                # print("cid {} grad1: {}".format(cid, grad1))
+                # grad[ee_joint*9 :( ee_joint+1)*9] += grad1 # lamda_1*
+        
+        return func
 
-def optimize_motion(src_motion, tgt_motion, tgt_auramesh_, root_scale,
-             col_frame_, jids1_, src_colliding_vpos_, src_colliding_vids_):
-    """ 
-    1. rec 
-    2. colliding_cids의 position - colliding position
-    """
-    # 이론상 이렇게 col_frame이 공유 되어야함
-    global col_frame 
-    global src_colliding_vpos
-    global src_colliding_vids
-    global tgt_auramesh
-    global jids1
-    global pose
-    global f
-    global root_p
-    global count_iter
-    global check_col
-    global target
-    col_frame = col_frame_
-    src_colliding_vpos = src_colliding_vpos_
-    src_colliding_vids = src_colliding_vids_
-    tgt_auramesh = tgt_auramesh_
-    jids1 = jids1_
-    
     # paramterters
     epsx = 1e-6 # 1e-10 # Desired precision for variables
     maxits = 100 # Maximum number of iterations
@@ -178,19 +154,9 @@ def optimize_motion(src_motion, tgt_motion, tgt_auramesh_, root_scale,
     
     # Input 
     len_x = 198 # 66
-    
     for f, pose in enumerate(src_motion.poses):
-        # count_iter = 0
-        # check_col = False
-        # torch을 사용하는 이유가 있나?
-        
         # target
         target = pose.local_R.reshape(-1)
-        
-        # tgt root 
-        tgt_root_p = torch.tensor(src_motion.poses[f].root_p)
-        tgt_root_p[1] *= root_scale
-        
         
         # x: angle axis로 바꾸기. aaxis(3) -> rot matrix(9)
         x0 = [0.0] * len_x
@@ -200,27 +166,10 @@ def optimize_motion(src_motion, tgt_motion, tgt_auramesh_, root_scale,
         x_optimized, _ = xalglib.minlbfgsresults(state)
         x_optimized = np.array(x_optimized)
         
-        # update
-        # delta_aaxis = np.array(x_optimized).reshape(22, 3) # aaxis -> R
-        # delta_angle = np.linalg.norm(delta_aaxis, axis=-1)
-        # delta_angle[np.where(delta_angle < 1e-6)] = 1e-6
-        # delta_axis = delta_aaxis / delta_angle[:, None]
-        # delta_local_R = A_to_R(delta_angle, delta_axis)
-        # out_local_R = delta_local_R @ pose.local_R # update 
-        
-        # set pose 
-        # tgt_motion.poses[f].local_R = out_local_R.astype('float32')
-        tgt_motion.poses[f].root_p = np.array(tgt_root_p) # src_motion.poses[f].root_p # np.array(x_optimized[-3:])
-        # tgt_motion.poses[f].update()
-        
-        # update 
+        # update local
         updated_target = x_optimized.reshape(22, 3, 3)
         tgt_motion.poses[f].local_R = updated_target
         tgt_motion.poses[f].update()
-        
-        # if check_col:
-        #     # print("f {}, count_iter {}: localR {} \n".format(f, count_iter, x_optimized[54:]))
-        #     check_col=False
         
     return tgt_motion
 

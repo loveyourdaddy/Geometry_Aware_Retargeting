@@ -1,7 +1,7 @@
 import sys
 # python을 실행시키는 path 기준: 
 # python auramesh/run_auramesh.py 
-sys.path.append('.')
+sys.path.append('./')
 sys.path.append('../') # Retargeting_workspace
 
 from pymovis.vis.appmanager import AppManager
@@ -61,6 +61,10 @@ if __name__ == "__main__":
     args.path = args.proj_name + '/'
     args.device = 'cpu'
     small = True
+    if small:
+        scale = 0.7
+    else:
+        scale = 1
     path = "./auramesh/"
 
 
@@ -101,58 +105,6 @@ if __name__ == "__main__":
     src_auramesh[1].set_pose_by_source_batch_frame(local_R1.unsqueeze(0), root_p1.unsqueeze(0))
 
 
-    """ target """
-    # target character
-    tgt_names = ["SMPLx", "SMPLx"]
-    tgt_chars = []
-    for name in tgt_names:
-        char, _, _ = get_a_character(args, name)
-        tgt_chars.append(char)
-
-    # target motion: zero rot
-    tgt_motion_0 = copy.deepcopy(motion_0)
-    tgt_motion_1 = copy.deepcopy(motion_0)
-    for pose in tgt_motion_0.poses:
-        pose.local_R = np.identity(3)[None, :].repeat(22, axis=0).astype(np.float32)
-        pose.update()
-    for pose in tgt_motion_1.poses:
-        pose.local_R = np.identity(3)[None, :].repeat(22, axis=0).astype(np.float32)
-        pose.update()
-
-    # set skeleton
-    tgt_chars[0].set_source_skeleton(tgt_motion_0.skeleton, "")
-    tgt_chars[1].set_source_skeleton(tgt_motion_1.skeleton, "")
-    
-    # scale
-    if small:
-        from datasets.character_functions import get_scale
-        scales = get_scale()
-        index = 0 # args.SMPLx_scale_index 
-        scale = scales[index]
-        leg_scale, body_scale, hand_scale = scale[0], scale[1], scale[2]
-        root_scale = leg_scale
-        from Retarget_SMPL.retarget_smpl import scale_character 
-        scale_character(args, tgt_chars[1], leg_scale, body_scale, hand_scale)
-    else:
-        root_scale = 1
-
-    # load geo
-    tgt_geoms = get_character_geometry(args, tgt_names, tgt_chars)
-    tgt_auramesh = []
-    for i, (geom, name) in enumerate(zip(src_geoms, src_names)):
-        auramesh = AuraMesh(args, tgt_geoms[i], tgt_names[i])
-        if i==0:
-            motion = tgt_motion_0
-        else:
-            motion = tgt_motion_1
-        update_boundary_position(args, auramesh, motion)
-        tgt_auramesh.append(auramesh)
-
-    # # set pose identity 
-    # for pose in tgt_motion_1.poses:
-    #     pose.local_R = np.identity(3)[None, :].repeat(22, axis=0)  
-    #     pose.update()
-    
     """ Collision detection """
     # Collision detection in src
     col_det = False
@@ -179,44 +131,86 @@ if __name__ == "__main__":
         col_frame = np.array(col_frame)
         print("load collision detection results")
 
+    """ target """
+    # target character
+    tgt_names = ["SMPLx", "SMPLx"]
+    tgt_chars = []
+    for name in tgt_names:
+        char, _, _ = get_a_character(args, name)
+        tgt_chars.append(char)
+    
+    # target motion: zero rot
+    tgt_motion_0 = copy.deepcopy(motion_0)
+    tgt_motion_1 = copy.deepcopy(motion_1)
+    for pose in tgt_motion_0.poses:
+        pose.local_R = np.identity(3)[None, :].repeat(22, axis=0).astype(np.float32)
+        pose.update()
+    for pose in tgt_motion_1.poses:
+        pose.local_R = np.identity(3)[None, :].repeat(22, axis=0).astype(np.float32)
+        pose.root_p[1] *= scale
+        pose.update()
+
+    # set skeleton
+    tgt_chars[0].set_source_skeleton(tgt_motion_0.skeleton, "")
+    tgt_chars[1].set_source_skeleton(tgt_motion_1.skeleton, "")
+
+    # scale
+    if small:
+        leg_scale, body_scale, hand_scale = scale, scale, scale
+        root_scale = leg_scale
+        from Retarget_SMPL.retarget_smpl import scale_character 
+        scale_character(args, tgt_chars[1], leg_scale, body_scale, hand_scale)
+
+    # load geo
+    tgt_geoms = get_character_geometry(args, tgt_names, tgt_chars)
+    tgt_auramesh = []
+    for i, (geom, name) in enumerate(zip(src_geoms, src_names)):
+        auramesh = AuraMesh(args, tgt_geoms[i], tgt_names[i])
+        if i==0:
+            update_boundary_position(args, auramesh, tgt_motion_0)
+        else:
+            update_boundary_position(args, auramesh, tgt_motion_1)
+        tgt_auramesh.append(auramesh)
+
+    """ optimize """
     optimize = True
     if optimize:
         import time
         time0 = time.time()
         
-        """ optimize """
-        # Get vpositions
-        src_colliding_vpos = []
-        src_colliding_vids = []
-        # for i, cids in enumerate(cids1):
-        #     f = col_frame[i]
-        
-        #     # unique vid index 
-        #     vids1 = src_auramesh[1].cid_to_first_vid[cids] # src_auramesh 
-        #     vids1 = torch.unique(vids1).to(args.device)
-        #     len_vids = len(vids1)
-        #     src_colliding_vids.append(vids1)
-            
-        #     # src colliding vpos
-        #     batch = torch.tensor([0])[None, None, :].repeat(1, 1, len_vids)
-        #     frame = torch.tensor([f])[None, None, :].repeat(1, 1, len_vids)
-        #     vids1_ = vids1[None, None, :]
-        #     vpos1 = src_auramesh[1].get_positions_from_vids(vids1_, batch, frame)[0,0]
-        #     src_colliding_vpos.append(vpos1)
+        """ optimize tgt motion0 from col vpos of tgt motion1 """
+        # Get vpositions for cid1 
+        src_col_vids0, src_col_vids1 = [], []
+        for i, cids in enumerate(cids1):
+            f = col_frame[i]
 
-        time1 = time.time()
-        # update character 1
-        tgt_motion_1 = optimize_motion(\
-            motion_1, tgt_motion_1, tgt_auramesh[1], root_scale,
-            col_frame, jids1, src_colliding_vpos, src_colliding_vids)
+            # 동일해야할 것 같은데?
+            # unique src_col_vids0
+            vids0 = src_auramesh[0].cid_to_first_vid[cids]
+            vids0 = torch.unique(vids0).to(args.device)
+            len_vids = len(vids0)
+            src_col_vids0.append(vids0)
+            
+            # 1
+            vids1 = src_auramesh[1].cid_to_first_vid[cids] 
+            vids1 = torch.unique(vids1).to(args.device)
+            len_vids = len(vids1)
+            src_col_vids1.append(vids1)
+            
+        # deform
+        # update motion1
+        # tgt_motion_1 = optimize_motion(\
+        #     motion_1, tgt_motion_1, tgt_auramesh[1], root_scale,
+        #     col_frame, jids1, src_col_vpos1, src_col_vids1)
+        for f, pose in enumerate(tgt_motion_1.poses): # to remove 
+            pose.local_R = motion_1.poses[f].local_R 
+            pose.update()
         
-        time2 = time.time()
+        # update motion0
         tgt_motion_0 = optimize_motion(\
-            motion_0, tgt_motion_0, tgt_auramesh[0], 1.0,
-            col_frame, jids0, src_colliding_vpos, src_colliding_vids)
-        time3 = time.time()
-        print("time: ", time1-time0, time2-time1, time3-time2)
-        # tgt_motion_0 = motion_0
+            motion_0, tgt_motion_0, tgt_motion_1, tgt_auramesh[0], tgt_auramesh[1],
+            src_col_vids0, src_col_vids1, 
+            col_frame, jids0, jids1)
         
         save = False
         if save:
