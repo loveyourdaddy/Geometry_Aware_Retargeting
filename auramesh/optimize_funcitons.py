@@ -28,7 +28,7 @@ def optimize_motion(src_motion, tgt_motion, ptn_motion, tgt_auramesh, ptn_aurame
     
     # compute loss func, grad
     def function1_grad(x, grad, param=None):
-        nonlocal f, pose, target #  tgt_root_p, 
+        nonlocal f, pose, target #  
         func = 0
         len_rot_x = 198 # 66
         
@@ -42,10 +42,11 @@ def optimize_motion(src_motion, tgt_motion, ptn_motion, tgt_auramesh, ptn_aurame
             grad[i] = x[i] - target[i]
         
         # target1. collision cpos
-        collision_preserving = False # False 
+        collision_preserving = True
         if collision_preserving:
             zero_tensor = torch.tensor([0])[None, None, :]
             col_ids = np.where(col_frame == f)[0]
+            tgt_root_p = tgt_motion.poses[f].root_p
             for cid in col_ids:
                 # updated own pose 
                 col_vids = all_col_vids[cid]
@@ -99,6 +100,7 @@ def optimize_motion(src_motion, tgt_motion, ptn_motion, tgt_auramesh, ptn_aurame
                 
                 # dLdP: (1, num_joint*3)
                 dLdP = lamda_1*2 * np.mean((ptn_vpos - tgt_vpos), axis=0)[None, :] # 1/num_col*
+                # print("dLdP: ", dLdP)
                 
                 # compute dPdX (num_joint*3, num_joint_chain*3)
                 dPdX = np.zeros((3, len_rot_x))
@@ -106,8 +108,8 @@ def optimize_motion(src_motion, tgt_motion, ptn_motion, tgt_auramesh, ptn_aurame
                     x_start = j*9
                     x_end = (j+1)*9
                     
-                    # dist 
-                    curT = np.array(tgt_auramesh.global_p[0, 0, j])
+                    # dist
+                    curT = np.array(tgt_auramesh.global_p[0,0,j])
                     dist = eeT - curT # dim: (3,)
                     
                     # origin
@@ -127,30 +129,28 @@ def optimize_motion(src_motion, tgt_motion, ptn_motion, tgt_auramesh, ptn_aurame
                         delta_axis, delta_angle = Q_to_A(delta_quat)
                         
                         # dT
-                        world_rot = np.array(tgt_auramesh.global_R[0,0,j].to('cpu'))
-                        world_axis = world_rot @ delta_axis
+                        world_R = np.array(tgt_auramesh.global_R[0,0,j])
+                        world_axis = world_R @ delta_axis
                         dT = delta_angle * np.cross(world_axis, dist) # np.deg2rad
                         
                         # update joint rotation (x,y,z)
                         for xid in range(x_start, x_end):
                             dPdX[eid, xid] = dT[eid]
+                    # print("j {}, dPdX: {}".format(j, dPdX))
 
                     # update 
                     dLdX = dLdP @ dPdX # (1, num_joint_chain*3)
+                    # print("j {}, dLdX: {}".format(j, dLdX))
                     for xid in range(len_rot_x):
                         grad[xid] += lamda_1*(dLdX[0, xid])
-                # import pdb; pdb.set_trace()
-                # grad1 = np.mean(ptn_vpos - tgt_vpos, axis=0)
-                # print("cid {} grad1: {}".format(cid, grad1))
-                # grad[ee_joint*9 :( ee_joint+1)*9] += grad1 # lamda_1*
         
         return func
 
     # paramterters
     epsx = 1e-6 # 1e-10 # Desired precision for variables
     maxits = 100 # Maximum number of iterations
-    epsg = 0.0 # 1.0e-10 # Epsilon for Gradient
-    epsf = 0.0 # 1.0e-10 # Epsilon for Function
+    epsg = 1.0e-10 # Epsilon for Gradient
+    epsf = 1.0e-10 # 0.0 # Epsilon for Function
     
     # Input 
     len_x = 198 # 66
@@ -168,8 +168,55 @@ def optimize_motion(src_motion, tgt_motion, ptn_motion, tgt_auramesh, ptn_aurame
         
         # update local
         updated_target = x_optimized.reshape(22, 3, 3)
+        
+        # def normalize_rotation_matrix(matrix):
+        #     # Reshape the input if it's not already in the correct shape
+        #     if matrix.ndim == 1:
+        #         matrix = matrix.reshape(-1, 3, 3)
+            
+        #     # Initialize the output array
+        #     normalized = np.zeros_like(matrix)
+            
+        #     for i in range(matrix.shape[0]):
+        #         # Normalize rows
+        #         for j in range(3):
+        #             normalized[i, j, :] = matrix[i, j, :] / np.linalg.norm(matrix[i, j, :])
+                
+        #         # Normalize columns
+        #         for j in range(3):
+        #             normalized[i, :, j] = normalized[i, :, j] / np.linalg.norm(normalized[i, :, j])
+                
+        #         if np.linalg.norm(normalized[i]) == 0:
+        #             normalized[i] = np.eye(3)
+                
+        #     return normalized
+
+        def normalize_rotation_matrix(matrix):
+            # Reshape the input if it's not already in the correct shape
+            if matrix.ndim == 1:
+                matrix = matrix.reshape(-1, 3, 3)
+            
+            # Initialize the output array
+            normalized = np.zeros_like(matrix)
+            
+            for i in range(matrix.shape[0]):
+                # Perform SVD
+                U, _, Vt = np.linalg.svd(matrix[i])
+                
+                # Reconstruct the rotation matrix
+                normalized[i] = U @ Vt
+                
+                # Ensure right-handed coordinate system
+                if np.linalg.det(normalized[i]) < 0:
+                    normalized[i][:, 2] *= -1
+            
+            return normalized
+
+        # normalize 
+        updated_target = normalize_rotation_matrix(updated_target)
         tgt_motion.poses[f].local_R = updated_target
         tgt_motion.poses[f].update()
+        # print("f {} updated_target: \n{}".format(f, updated_target[:4]))
         
     return tgt_motion
 
@@ -188,29 +235,6 @@ def get_character_geometry(args, names, fbx_models):
         geometry.append(Geometry(args, fbx_models[i], name))
 
     return geometry
-
-def motion2feature(motion):
-    features = []
-    for pose in motion.poses:
-        local_R6 = R_to_R6(pose.local_R)
-        root_p = pose.root_p
-        features.append(np.concatenate([local_R6.flatten(), root_p]))
-
-    features = np.stack(features, axis=0)
-    return torch.from_numpy(features)
-
-def feature2motion(features, skeleton, fps):
-    if isinstance(features, torch.Tensor):
-        features = features.cpu().numpy()
-
-    poses = []
-    for feat in features:
-        local_R = R6_to_R(feat[:-3].reshape(-1, 6)).reshape(-1, 3, 3)
-        root_p = feat[-3:]
-        pose = Pose(skeleton, local_R, root_p)
-        poses.append(pose)
-
-    return Motion(skeleton, poses, fps)
 
 def quaternion_slerp(q1, q2, t):
     if not np.isscalar(t):

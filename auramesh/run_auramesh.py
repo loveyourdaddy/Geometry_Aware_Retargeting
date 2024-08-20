@@ -82,6 +82,11 @@ if __name__ == "__main__":
     motion_0 = get_interaction_motions_from_list(src_names[0], [motion_name0])[0]
     motion_1 = get_interaction_motions_from_list(src_names[0], [motion_name1])[0]
     
+    # motion clap
+    clap = 330
+    motion_0.poses = motion_0.poses[:clap]
+    motion_1.poses = motion_1.poses[:clap]
+    
     # set source skeleton
     src_chars[0].set_source_skeleton(motion_0.skeleton, "")
     src_chars[1].set_source_skeleton(motion_1.skeleton, "")
@@ -178,41 +183,43 @@ if __name__ == "__main__":
         import time
         time0 = time.time()
         
-        """ optimize tgt motion0 from col vpos of tgt motion1 """
         # Get vpositions for cid1 
         src_col_vids0, src_col_vids1 = [], []
         for i, cids in enumerate(cids1):
             f = col_frame[i]
 
-            # 동일해야할 것 같은데?
             # unique src_col_vids0
             vids0 = src_auramesh[0].cid_to_first_vid[cids]
-            vids0 = torch.unique(vids0).to(args.device)
-            len_vids = len(vids0)
+            vids0 = torch.unique(vids0)
             src_col_vids0.append(vids0)
             
             # 1
-            vids1 = src_auramesh[1].cid_to_first_vid[cids] 
-            vids1 = torch.unique(vids1).to(args.device)
-            len_vids = len(vids1)
+            vids1 = src_auramesh[1].cid_to_first_vid[cids]
+            vids1 = torch.unique(vids1)
             src_col_vids1.append(vids1)
             
+        time1 = time.time()
+        print("time: ", time1-time0)
+        
+        """ optimize tgt motion0 from col vpos of tgt motion1 """
         # deform
         # update motion1
         # tgt_motion_1 = optimize_motion(\
         #     motion_1, tgt_motion_1, tgt_auramesh[1], root_scale,
         #     col_frame, jids1, src_col_vpos1, src_col_vids1)
-        for f, pose in enumerate(tgt_motion_1.poses): # to remove 
-            pose.local_R = motion_1.poses[f].local_R 
+        
+        # to remove
+        for f, pose in enumerate(tgt_motion_1.poses):
+            pose.local_R = motion_1.poses[f].local_R
             pose.update()
         
         # update motion0
         tgt_motion_0 = optimize_motion(\
             motion_0, tgt_motion_0, tgt_motion_1, tgt_auramesh[0], tgt_auramesh[1],
-            src_col_vids0, src_col_vids1, 
+            src_col_vids0, src_col_vids1,
             col_frame, jids0, jids1)
         
-        save = False
+        save = True
         if save:
             local_Rs = []
             for i, pose in enumerate(tgt_motion_0.poses):
