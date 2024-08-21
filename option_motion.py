@@ -37,7 +37,7 @@ trainset_bvh = {
     "mirror_Hard_04_male_30fps": "mirror_Hard_04_female_30fps",
 }
 
-# target0 (ptn) vs target1 (deformed)
+# target0 (ptn) vs target1 (main, deformed)
 example_bvh = {
     # "greeting002_S1":"greeting002_S2",
     # "HandShaking_JIS": "HandShaking_SCW",

@@ -20,7 +20,7 @@ from datasets.motion_functions import get_interaction_motions_from_list
 # from Geometry.geometry import Geometry
 from Geometry.auramesh import AuraMesh
 from Geometry.compare_geometry import collision_detection, update_boundary_position
-from Retarget_SMPL.relationship_descriptor import get_rootP_localR_globalP_from_motion
+from Retarget_SMPL.relationship_descriptor import get_rootP_localR_globalP_from_motion, get_rootP_localR_globalP_from_numpy_motion
 
 from optimize_funcitons import *
 from typing import List, Optional
@@ -37,7 +37,7 @@ class MyApp(MotionApp):
     def __init__(self, model: List[Geometry], auramesh: List[AuraMesh], motion: Motion, args, collision=None, net=None):
         # self.model = [m.renderable_model() for m in model]
         self.model = model
-        self.auramesh = [m.renderable_model() for m in auramesh]
+        # self.auramesh = [m.renderable_model() for m in auramesh]
         if net is None:
             super().__init__(self.model, motion, args)
         else:
@@ -49,10 +49,10 @@ class MyApp(MotionApp):
     def render(self):
         super().render()
         
-        for idx, mesh in enumerate(self.auramesh):
-            char_idx = self.auramesh_char_index[idx]
-            mesh.set_pose_by_source(self.motions[char_idx].poses[self.frame])
-            Render.model(mesh).set_albedo([1, 0.5, 0.5]).set_all_alphas(0.5).draw()
+        # for idx, mesh in enumerate(self.auramesh):
+        #     char_idx = self.auramesh_char_index[idx]
+        #     mesh.set_pose_by_source(self.motions[char_idx].poses[self.frame])
+        #     Render.model(mesh).set_albedo([1, 0.5, 0.5]).set_all_alphas(0.5).draw()
 
 """ this code run in CPU """
 if __name__ == "__main__":
@@ -83,7 +83,7 @@ if __name__ == "__main__":
     motion_1 = get_interaction_motions_from_list(src_names[0], [motion_name1])[0]
     
     # motion clap
-    clap = 330
+    clap = 380 # 330
     motion_0.poses = motion_0.poses[:clap]
     motion_1.poses = motion_1.poses[:clap]
     
@@ -119,7 +119,7 @@ if __name__ == "__main__":
         time0 = time.time()
         
         """ col det """
-        cids0, cids1, jids0, jids1, col_frame = collision_detection(args, src_geoms[0], src_auramesh[1], motion_0, motion_1)
+        geo_cids0, auramesh_cids1, jids0, jids1, col_frame = collision_detection(args, src_geoms[0], src_auramesh[1], motion_0, motion_1)
         torch.save(cids0, path+'pt/cids0.pt')
         torch.save(cids1, path+'pt/cids1.pt')
         torch.save(jids0, path+'pt/jids0.pt')
@@ -128,8 +128,8 @@ if __name__ == "__main__":
         time1 = time.time()
         print("time: ", time1-time0)
     else:
-        cids0 = torch.load(path+'pt/cids0.pt')
-        cids1 = torch.load(path+'pt/cids1.pt')
+        tgt_geo_cids0 = torch.load(path+'pt/cids0.pt')
+        tgt_auramesh_cids1 = torch.load(path+'pt/cids1.pt')
         jids0 = torch.load(path+'pt/jids0.pt')
         jids1 = torch.load(path+'pt/jids1.pt')
         col_frame = torch.load(path+'pt/col_frame.pt')
@@ -140,8 +140,11 @@ if __name__ == "__main__":
     # target character
     tgt_names = ["SMPLx", "SMPLx"]
     tgt_chars = []
-    for name in tgt_names:
-        char, _, _ = get_a_character(args, name)
+    for i, name in enumerate(tgt_names):
+        if i ==0:
+            char, _, _ = get_a_character(args, name)
+        else:
+            char, _, _ = get_a_character(args, name, mesh_scale=scale)
         tgt_chars.append(char)
     
     # target motion: zero rot
@@ -151,7 +154,7 @@ if __name__ == "__main__":
         pose.local_R = np.identity(3)[None, :].repeat(22, axis=0).astype(np.float32)
         pose.update()
     for pose in tgt_motion_1.poses:
-        pose.local_R = np.identity(3)[None, :].repeat(22, axis=0).astype(np.float32)
+        # pose.local_R = np.identity(3)[None, :].repeat(22, axis=0).astype(np.float32)
         pose.root_p[1] *= scale
         pose.update()
 
@@ -169,55 +172,59 @@ if __name__ == "__main__":
     # load geo
     tgt_geoms = get_character_geometry(args, tgt_names, tgt_chars)
     tgt_auramesh = []
-    for i, (geom, name) in enumerate(zip(src_geoms, src_names)):
+    for i in range(len(tgt_geoms)):
         auramesh = AuraMesh(args, tgt_geoms[i], tgt_names[i])
         if i==0:
-            update_boundary_position(args, auramesh, tgt_motion_0)
+            motion = tgt_motion_0
         else:
-            update_boundary_position(args, auramesh, tgt_motion_1)
+            motion = tgt_motion_1
+            
+        root_p, local_R, _ = get_rootP_localR_globalP_from_numpy_motion(args, motion.poses)
+        auramesh.set_pose_by_source_batch_frame(local_R.unsqueeze(0), root_p.unsqueeze(0))
         tgt_auramesh.append(auramesh)
 
     """ optimize """
     optimize = True
     if optimize:
-        import time
-        time0 = time.time()
-        
-        # Get vpositions for cid1 
-        src_col_vids0, src_col_vids1 = [], []
-        for i, cids in enumerate(cids1):
-            f = col_frame[i]
+        # Get vpositions for cid1
+        tgt_geo_vids0, tgt_auramesh_vids1 = [], []
+        num_col = len(tgt_geo_cids0)
+        for i in range(num_col):
+            # geo of 0
+            vids0 = tgt_geoms[0].cid_to_first_vid[tgt_geo_cids0[i]]
+            tgt_geo_vids0.append(vids0)
 
-            # unique src_col_vids0
-            vids0 = src_auramesh[0].cid_to_first_vid[cids]
-            vids0 = torch.unique(vids0)
-            src_col_vids0.append(vids0)
+            # auramesh of 1
+            vids1 = src_auramesh[1].cid_to_first_vid[tgt_auramesh_cids1[i]]
+            tgt_auramesh_vids1.append(vids1)
             
-            # 1
-            vids1 = src_auramesh[1].cid_to_first_vid[cids]
-            vids1 = torch.unique(vids1)
-            src_col_vids1.append(vids1)
-            
-        time1 = time.time()
-        print("time: ", time1-time0)
         
         """ optimize tgt motion0 from col vpos of tgt motion1 """
-        # deform
-        # update motion1
-        # tgt_motion_1 = optimize_motion(\
-        #     motion_1, tgt_motion_1, tgt_auramesh[1], root_scale,
-        #     col_frame, jids1, src_col_vpos1, src_col_vids1)
+        
+        # # update motion1 (main)
+        # tgt_motion_0 = optimize_motion(args,
+        #     motion_0, 
+        #     tgt_motion_0, tgt_motion_1, tgt_auramesh[0], tgt_auramesh[1],
+        #     src_col_vids0, auramesh_col_vids1,
+        #     col_frame, jids0, jids1)
         
         # to remove
         for f, pose in enumerate(tgt_motion_1.poses):
             pose.local_R = motion_1.poses[f].local_R
             pose.update()
         
-        # update motion0
-        tgt_motion_0 = optimize_motion(\
-            motion_0, tgt_motion_0, tgt_motion_1, tgt_auramesh[0], tgt_auramesh[1],
-            src_col_vids0, src_col_vids1,
+        import time
+        time0 = time.time()
+        
+        # update motion0 (ptn)
+        tgt_motion_0 = optimize_motion(args,
+            motion_0, tgt_motion_0, 
+            tgt_geoms[0], tgt_auramesh[1],
+            tgt_geo_vids0, tgt_auramesh_vids1,
             col_frame, jids0, jids1)
+        
+        time1 = time.time()
+        print("time: ", time1-time0)
         
         save = True
         if save:
