@@ -38,6 +38,9 @@ for i, character_name0 in enumerate(names):
         mesh_scale = 1.1
 
     source0_character, motion0, _ = get_a_character(args, character_name0, template, mesh_scale) # 
+    if i==0:
+        for mesh in source0_character.meshes:
+            mesh.materials[0].alpha=0.5
     # motion0 = get_single_motion_from_list("SMPLx", [motion_name])[0] # character_name0 interaction
     source0_character.set_source_skeleton(motion0.skeleton, "") # MIXAMO_BVH_TO_FBX
     characters.append(source0_character)
@@ -46,7 +49,8 @@ for i, character_name0 in enumerate(names):
 distance = 3
 for i, motion in enumerate(motions):
     for pose in motion.poses:
-        pose.translate_root_p([i*distance, 0, 0])
+        # pose.translate_root_p([i*distance, 0, 0])
+        pose.translate_root_p([0, 0, -i*distance])
 
 app = MyApp(characters, motions, args)
 app_manager.run(app)
