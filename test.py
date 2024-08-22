@@ -81,6 +81,9 @@ def main(args):
     
     
     """ make motion """
+    import time
+    time0 = time.time()
+    
     net = Network(args)
     net.load(args.test_proj + '/' , args.test_epoch, device=args.device)
     net.eval()
@@ -95,6 +98,8 @@ def main(args):
                         jit_output_p1, jit_output_R1, 
                         target0_character, target1_character, 
                         source_motion0, source_motion1)
+    time1 = time.time()
+    print("time: ", time1-time0)
     
     # post processing
     output_motion0, output_motion1 = \
@@ -143,7 +148,7 @@ def main(args):
         output_motion1 = make_new_motion(jit_output_p1, jit_output_R1, target1_character, source_motion1)
 
     """ option """
-    # save 
+    # save
     if args.save:
         save_path = './result_saved/' + args.test_proj + '/'
         os.makedirs(save_path, exist_ok=True)
@@ -158,7 +163,7 @@ def main(args):
         np.save(save_path+name+'jit_output_R0', jit_output_R0.detach().numpy())
         np.save(save_path+name+'jit_output_R1', jit_output_R1.detach().numpy())
     # render
-    else: 
+    else:
         from etc.etc import render_result, render_result_and_compare
         characters, motions = \
             render_result(args, 

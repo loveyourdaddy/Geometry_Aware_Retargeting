@@ -21,9 +21,8 @@ template = bvh.load(
 )
 
 # char
-# args.geo_preprocess = True
-# args.bvh_preprocess = True
-names = ["SMPLx_fat", "SMPLx_fat"] # Ybot Amy SMPLx Remy Leonard Amy Ortiz
+names = ["SMPLx", "SMPLx"]
+# names = ["SMPLx_fat", "SMPLx_fat"] # Ybot Amy SMPLx Remy Leonard Amy Ortiz
 characters, motions = [], []
 geos = []
 vids = []
@@ -33,15 +32,29 @@ motion_name = "Tpose"
 
 for i, character_name0 in enumerate(names):
     if i==0:
-        mesh_scale = 1
+        # trainset
+        scale = 1.2
     else:
-        mesh_scale = 1.1
-
+        scale = 1.3 
+        
+    mesh_scale = scale 
     source0_character, motion0, _ = get_a_character(args, character_name0, template, mesh_scale) # 
-    if i==0:
+    
+    # scale offset
+    leg_scale, body_scale, hand_scale = scale, scale, scale
+    root_scale = leg_scale
+    from Retarget_SMPL.retarget_smpl import scale_character 
+    scale_character(args, source0_character, leg_scale, body_scale, hand_scale)
+    # motion 
+    for pose in motion0.poses:
+        pose.root_p[1] *= scale
+        pose.update()
+
+
+    if i==0: # trainset
         for mesh in source0_character.meshes:
             mesh.materials[0].alpha=0.5
-    # motion0 = get_single_motion_from_list("SMPLx", [motion_name])[0] # character_name0 interaction
+    
     source0_character.set_source_skeleton(motion0.skeleton, "") # MIXAMO_BVH_TO_FBX
     characters.append(source0_character)
     motions.append(motion0)
