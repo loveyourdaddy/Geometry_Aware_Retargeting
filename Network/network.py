@@ -209,6 +209,20 @@ class Network():
         foot_contact_label0 = detect_foot_contact_from_batched_position(self.args, input_pos0)
         foot_contact_label1 = detect_foot_contact_from_batched_position(self.args, input_pos1)
         
+        # source TODO 
+        # anchor position
+        # source_anchor_positions0 = \
+        #     self.get_anchor_position(cid,
+        #                                 source_offsets0[0], source_R0, source_root_p0, 
+        #                                 anchor_vpos_src, anchor_vids_src, batch, frame)
+        # source_anchor_positions1 = \
+        #     self.get_anchor_position(cid,
+        #                                 source_offset1, source_R1, source_root_p1,
+        #                                 anchor_vpos_src_b, anchor_vids_src_b, batch, frame)
+        # distance map
+        # source_anchor_map0 = get_distance_map(source_anchor_positions0, source_anchor_positions1)
+        # source_anchor_map1 = get_distance_map(source_anchor_positions1, source_anchor_positions0)
+        
         # load 
         if self.args.begin_epoch != 0:
             self.load(self.args.path, self.args.begin_epoch)
@@ -357,53 +371,6 @@ class Network():
                                 sum_foot_contact_loss0 += foot_contact_loss0.item()
                                 sum_foot_contact_loss1 += foot_contact_loss1.item()
                             
-                            # smooth loss
-                            if self.args.loss_smooth:
-                                smooth_loss0 = self.loss_func(output_motion0[:, 1:], output_motion0[:, :-1])
-                                smooth_loss1 = self.loss_func(output_motion1[:, 1:], output_motion1[:, :-1])
-                                loss0 += self.args.lambda_smooth * smooth_loss0
-                                loss1 += self.args.lambda_smooth * smooth_loss1
-                                sum_smooth_loss0 += smooth_loss0.item()
-                                sum_smooth_loss1 += smooth_loss1.item()
-                            
-                            # skel distance loss
-                            if self.args.loss_skel:
-                                # source 
-                                if self.args.anchor_gt:
-                                    source_pos0, source_pos1 = gt_pos_b0, gt_pos_b1
-                                else:
-                                    # source_pos0, source_pos1 = input_pos_b0, input_pos_b1
-                                    source_root_p0 = input_motion0[..., -3:]
-                                    source_root_p1 = input_motion1[..., -3:]
-                                    source_input_R0 = input_motion0[..., :-3].reshape(b_size, len_frame, 22, 6)
-                                    source_input_R1 = input_motion1[..., :-3].reshape(b_size, len_frame, 22, 6)
-                                    source_input_R0 = R6_to_R(source_input_R0)
-                                    source_input_R1 = R6_to_R(source_input_R1)
-                                    _, source_pos0 = R_fk_from_given_info(source_input_R0, source_root_p0, source_offsets0, parent_idx0[cid])
-                                    _, source_pos1 = R_fk_from_given_info(source_input_R1, source_root_p1, source_offsets1, parent_idx1[cid])
-                                
-                                # distance / displacement
-                                if self.args.anchor_dist:
-                                    # dist 
-                                    source_skel_map0 = get_distance_map(source_pos0, source_pos1)
-                                    source_skel_map1 = get_distance_map(source_pos1, source_pos0)
-                                    out_skel_map0 = get_distance_map(out_pos0, out_pos1.detach())
-                                    out_skel_map1 = get_distance_map(out_pos1, out_pos0.detach())
-                                else:
-                                    # disp
-                                    source_skel_map0 = get_displacement_map(source_pos0, source_pos1)
-                                    source_skel_map1 = get_displacement_map(source_pos1, source_pos0)
-                                    out_skel_map0 = get_displacement_map(out_pos0, out_pos1.detach())
-                                    out_skel_map1 = get_displacement_map(out_pos1, out_pos0.detach())
-
-                                # loss
-                                skel_loss0 = self.distance_map_loss(source_skel_map0, out_skel_map0)
-                                skel_loss1 = self.distance_map_loss(source_skel_map1, out_skel_map1)
-                                loss0 += self.args.lambda_skel * skel_loss0
-                                loss1 += self.args.lambda_skel * skel_loss1
-                                sum_skel_disp_loss0 += skel_loss0.item()
-                                sum_skel_disp_loss1 += skel_loss1.item()
-                            
                             # anchor loss 
                             if self.args.loss_anchor:
                                 # vid 
@@ -416,54 +383,33 @@ class Network():
                                 anchor_vpos1_Tpose_b = anchor_vpos1_Tpose.reshape(1, 1, len_vids, 3).repeat(b_size, len_frame, 1, 1).to(self.args.device)
                                 
                                 # source 
-                                # gt 
-                                if self.args.anchor_gt:
-                                    # offset 
-                                    source_offset0 = source_offsets0[cid]
-                                    source_offset1 = source_offsets1[cid]
-                                    # root 
-                                    source_root_p0 = gt_root_p0
-                                    source_root_p1 = gt_root_p1
-                                    # rot reshape 
-                                    gt_R0 = gt_R0.reshape(b_size, len_frame, 22, 6)
-                                    gt_R1 = gt_R1.reshape(b_size, len_frame, 22, 6)
-                                    if self.args.rotation_rep == 'quat':
-                                        source_R0 = Q_to_R(gt_R0)
-                                        source_R1 = Q_to_R(gt_R1)
-                                        # out_R0
-                                    elif self.args.rotation_rep == 'R6':
-                                        source_R0 = R6_to_R(gt_R0)
-                                        source_R1 = R6_to_R(gt_R1)
-                                # input 
-                                else:
-                                    # offset 
-                                    source_offset0 = source_offsets0[cid]
-                                    source_offset1 = source_offsets1[cid]
-                                    # root 
-                                    source_root_p0 = input_motion_b0[..., -3:]
-                                    source_root_p1 = input_motion_b1[..., -3:]
-                                    # rot 
-                                    in_R0 = input_motion_b0[..., :-3]
-                                    in_R1 = input_motion_b1[..., :-3]
-                                    in_R0 = in_R0.reshape(b_size, len_frame, 22, 6)
-                                    in_R1 = in_R1.reshape(b_size, len_frame, 22, 6)
-                                    if self.args.rotation_rep == 'quat':
-                                        source_R0 = Q_to_R(in_R0)
-                                        source_R1 = Q_to_R(in_R1)
-                                    elif self.args.rotation_rep == 'R6':
-                                        source_R0 = R6_to_R(in_R0)
-                                        source_R1 = R6_to_R(in_R1)
-
+                                # offset 
+                                source_offset0 = source_offsets0[cid]
+                                source_offset1 = source_offsets1[cid]
+                                # root 
+                                source_root_p0 = gt_root_p0
+                                source_root_p1 = gt_root_p1
+                                # rot reshape 
+                                gt_R0 = gt_R0.reshape(b_size, len_frame, 22, 6)
+                                gt_R1 = gt_R1.reshape(b_size, len_frame, 22, 6)
+                                if self.args.rotation_rep == 'quat':
+                                    source_R0 = Q_to_R(gt_R0)
+                                    source_R1 = Q_to_R(gt_R1)
+                                    # out_R0
+                                elif self.args.rotation_rep == 'R6':
+                                    source_R0 = R6_to_R(gt_R0)
+                                    source_R1 = R6_to_R(gt_R1)
+                                
                                 # anchor position
-                                # source TODO: source을 미리 계산해둘 방법은 없나? batch로 미리 들고 있기? 메모리가 너무 큰가? 
-                                source_anchor_positions0 = \
-                                    self.get_anchor_position(cid,
-                                                             source_offset0, source_R0, source_root_p0, 
-                                                             anchor_vpos_src_b, anchor_vids_src_b, batch, frame)
-                                source_anchor_positions1 = \
-                                    self.get_anchor_position(cid,
-                                                             source_offset1, source_R1, source_root_p1,
-                                                             anchor_vpos_src_b, anchor_vids_src_b, batch, frame)
+                                # source 
+                                # source_anchor_positions0 = \
+                                #     self.get_anchor_position(cid,
+                                #                              source_offset0, source_R0, source_root_p0, 
+                                #                              anchor_vpos_src_b, anchor_vids_src_b, batch, frame)
+                                # source_anchor_positions1 = \
+                                #     self.get_anchor_position(cid,
+                                #                              source_offset1, source_R1, source_root_p1,
+                                #                              anchor_vpos_src_b, anchor_vids_src_b, batch, frame)
 
                                 # output
                                 out_anchor_positions0 = \
@@ -475,39 +421,20 @@ class Network():
                                                              tar_offset1, out_R1, root_p1,
                                                              anchor_vpos1_Tpose_b, anchor_vids1_b, batch, frame)
                                 
-                                # distance / displacement
-                                if self.args.anchor_dist:
-                                    # dist map
-                                    source_anchor_map0 = get_distance_map(source_anchor_positions0, source_anchor_positions1) # TODO: 미리 계산해두기
-                                    source_anchor_map1 = get_distance_map(source_anchor_positions1, source_anchor_positions0)
-                                    out_anchor_map0 = get_distance_map(out_anchor_positions0, out_anchor_positions1.detach())
-                                    out_anchor_map1 = get_distance_map(out_anchor_positions1, out_anchor_positions0.detach())
-                                    # loss
-                                    anchor_loss0 = self.distance_map_loss(source_anchor_map0, out_anchor_map0)
-                                    anchor_loss1 = self.distance_map_loss(source_anchor_map1, out_anchor_map1)
-                                else:
-                                    # disp map
-                                    source_anchor_map0 = get_displacement_map(source_anchor_positions0, source_anchor_positions1)
-                                    source_anchor_map1 = get_displacement_map(source_anchor_positions1, source_anchor_positions0)
-                                    out_anchor_map0 = get_displacement_map(out_anchor_positions0, out_anchor_positions1.detach())
-                                    out_anchor_map1 = get_displacement_map(out_anchor_positions1, out_anchor_positions0.detach())
-                                    # loss
-                                    anchor_loss0 = self.displacement_map_loss(source_anchor_map0, out_anchor_map0)
-                                    anchor_loss1 = self.displacement_map_loss(source_anchor_map1, out_anchor_map1)
-                            
+                                # distance map
+                                # source_anchor_map0 = get_distance_map(source_anchor_positions0, source_anchor_positions1)
+                                # source_anchor_map1 = get_distance_map(source_anchor_positions1, source_anchor_positions0)
+                                out_anchor_map0 = get_distance_map(out_anchor_positions0, out_anchor_positions1.detach())
+                                out_anchor_map1 = get_distance_map(out_anchor_positions1, out_anchor_positions0.detach())
+                                # loss
+                                anchor_loss0 = self.distance_map_loss(source_anchor_map0, out_anchor_map0)
+                                anchor_loss1 = self.distance_map_loss(source_anchor_map1, out_anchor_map1)
+                                # add loss 
                                 loss0 += self.args.lambda_anchor*anchor_loss0
                                 loss1 += self.args.lambda_anchor*anchor_loss1
                                 sum_anchor_disp_loss0 += anchor_loss0.item()
                                 sum_anchor_disp_loss1 += anchor_loss1.item()
                             
-                            # reg loss 
-                            if self.args.loss_reg:
-                                reg_loss = 0
-                                for net in self.nets:
-                                    for p in net.parameters():
-                                        reg_loss = reg_loss + p.abs().sum()
-                                loss0 += self.args.lambda_reg * reg_loss
-                                sum_reg_loss += reg_loss.item()
                             
                             """ backward """
                             loss = loss0 + loss1
@@ -545,13 +472,8 @@ class Network():
                 "foot_contact_loss0": sum_foot_contact_loss0,
                 "foot_contact_loss1": sum_foot_contact_loss1,
                 
-                "smooth_loss0": sum_smooth_loss0, 
-                "smooth_loss1": sum_smooth_loss1, 
-                "skel_disp_loss0": sum_skel_disp_loss0,
-                "skel_disp_loss1": sum_skel_disp_loss1,
                 "disp_loss0": sum_anchor_disp_loss0,
                 "disp_loss1": sum_anchor_disp_loss1,
-                "reg_loss": sum_reg_loss,
                 "valid_loss0": valid_loss0,
                 "valid_loss1": valid_loss1,
                 }
