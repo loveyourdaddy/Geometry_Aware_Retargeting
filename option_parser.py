@@ -1,11 +1,9 @@
 import ast
 import argparse
 
-
 def get_args():
     parser = get_parser()
     return parser.parse_args()
-
 
 def get_parser():
     parser = argparse.ArgumentParser()
@@ -19,20 +17,18 @@ def get_parser():
 
     # character
     parser.add_argument('--test_type', type=str, default="SMPLx") # SMPLx Mixamo
-    parser.add_argument('--test_char', type=str, default="small")  # normal small fat
+    parser.add_argument('--test_char', type=str, default="small") # render type
     parser.add_argument('--role_change', type=str_to_bool, default=False)  # True False
-    # save
+    
+    """ setting """
     parser.add_argument('--save', type=str_to_bool, default=False)
     parser.add_argument('--debug', type=str_to_bool, default=False)
-
-    """ setting """
     parser.add_argument('--load_from_saved', type=str, default='')
     parser.add_argument('--path', type=str, default='')
-    parser.add_argument('--device', type=str, default='cuda')  # cpu cuda
-    parser.add_argument('--save_iter_epoch', type=int, default=500)  # etc
+    parser.add_argument('--device', type=str, default='cuda') # cpu cuda
+    parser.add_argument('--save_iter_epoch', type=int, default=500)
 
-    """ network """
-    # structure
+    """ network structure """
     parser.add_argument('--weight_sharing', type=str_to_bool, default=True)
     parser.add_argument('--temporal_attn',  type=str_to_bool, default=False)
     parser.add_argument('--char_info', type=str, default="length")
@@ -41,8 +37,7 @@ def get_parser():
     parser.add_argument('--target_characters', type=arg_as_list, default=["SMPLx", "SMPLx_fat"])
     parser.add_argument('--motion0', type=str, default="")
     parser.add_argument('--motion1', type=str, default="")
-    parser.add_argument('--SMPLx_scaled', type=str_to_bool, default=False)
-    parser.add_argument('--SMPLx_scale', type=float, default=0.7) # 0.6 1.3
+    parser.add_argument('--SMPLx_scale', type=float, default=1.0)
     parser.add_argument('--SMPLx_mesh_scale', type=float, default=1.0)
     parser.add_argument('--train_one_chararacter_only', type=str_to_bool, default=False)
 
@@ -108,8 +103,8 @@ def get_parser():
     parser.add_argument('--right_hand_joints', type=list, default=[18, 19, 20, 21])
     
     # ground pene # detect 
-    parser.add_argument('--pene_ths_heel', type=float, default=0.08) # 작을수록 강한 규제
-    parser.add_argument('--pene_ths', type=float, default=0.02)
+    parser.add_argument('--pene_ths_heel', type=float, default=0.04) # 작을수록 강한 규제
+    parser.add_argument('--pene_ths', type=float, default=0.03)
 
     ''' debug & render '''
     parser.add_argument('--source_pos', type=float, default=-4) # -2

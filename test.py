@@ -36,7 +36,7 @@ def main(args):
     """ load data """
     # load character 
     source0_character, source1_character, targ0_character, targ1_character, \
-    targ0_Tpose, targ1_Tpose, source0_name, source1_name = \
+        targ0_Tpose, targ1_Tpose, source0_name, source1_name = \
         load_char(args)
     
     if args.test_type=="Mixamo":
@@ -80,10 +80,7 @@ def main(args):
         target0_character, target1_character = targ0_character, targ1_character
     
     
-    """ make motion """
-    import time
-    time0 = time.time()
-    
+    # Network
     net = Network(args)
     net.load(args.test_proj + '/' , args.test_epoch, device=args.device)
     net.eval()
@@ -98,8 +95,6 @@ def main(args):
                         jit_output_p1, jit_output_R1, 
                         target0_character, target1_character, 
                         source_motion0, source_motion1)
-    time1 = time.time()
-    print("time: ", time1-time0)
     
     # post processing
     output_motion0, output_motion1 = \
