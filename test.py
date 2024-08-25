@@ -35,7 +35,7 @@ def main(args):
 
     """ load data """
     # load character 
-    source0_character, source1_character, targ0_character, targ1_character, \
+    source0_character, source1_character, tgt0_character, tgt1_character, \
         targ0_Tpose, targ1_Tpose, source0_name, source1_name = \
         load_char(args)
     
@@ -52,7 +52,7 @@ def main(args):
     
     # dataset
     dataset = Dataset(args)
-    dataset.get_char_data(source0_character, source1_character, targ0_character, targ1_character)
+    dataset.get_char_data(source0_character, source1_character, tgt0_character, tgt1_character)
     
     # motion
     dataset.get_input_motion(source_motion0, source_motion1)
@@ -62,7 +62,7 @@ def main(args):
 
     # swap role
     if args.role_change:
-        target1_character, target0_character = targ0_character, targ1_character
+        target1_character, target0_character = tgt0_character, tgt1_character
         # offset 
         tmp = dataset.target_offsets1.clone()
         dataset.target_offsets1 = dataset.target_offsets0.clone()
@@ -77,7 +77,7 @@ def main(args):
             target0_skeleton_idx, target0_finger_idx = target1_skeleton_idx, target1_finger_idx
             target1_skeleton_idx, target1_finger_idx = tmp0, tmp1
     else: 
-        target0_character, target1_character = targ0_character, targ1_character
+        target0_character, target1_character = tgt0_character, tgt1_character
     
     
     # Network
@@ -97,8 +97,8 @@ def main(args):
                         source_motion0, source_motion1)
     
     # post processing
-    output_motion0, output_motion1 = \
-        resolve_ground_pene(args, output_motion0, output_motion1)
+    # output_motion0, output_motion1 = \
+    #     resolve_ground_pene(args, output_motion0, output_motion1)
     
     # test with aura mesh
     if False:
@@ -141,32 +141,56 @@ def main(args):
         jit_output_p1, jit_output_R1, _ = get_rootP_localR_globalP_from_motion(args, output_motion1.poses)
         output_motion0 = make_new_motion(jit_output_p0, jit_output_R0, target0_character, source_motion0)
         output_motion1 = make_new_motion(jit_output_p1, jit_output_R1, target1_character, source_motion1)
+        
+    # check foot contact preserving
+    src_foot_contact0 = detect_foot_contact(args, source_motion0)
+    src_foot_contact1 = detect_foot_contact(args, source_motion1)
+    tgt_foot_contact0 = detect_foot_contact(args, output_motion0)
+    tgt_foot_contact1 = detect_foot_contact(args, output_motion1)
+    
+    foot_joints = args.toe_joints + args.heel_joints
+    src_foot_contact0 = src_foot_contact0[:, foot_joints]
+    src_foot_contact1 = src_foot_contact1[:, foot_joints]
+    tgt_foot_contact0 = tgt_foot_contact0[:, foot_joints]
+    tgt_foot_contact1 = tgt_foot_contact1[:, foot_joints]
+    
+    
+    def get_contact_preserving(src_foot_contact, tgt_foot_contact):
+        num_src_contact = np.sum(src_foot_contact)
+        contact_preserving = np.logical_and(src_foot_contact, tgt_foot_contact)
+        num_tgt_contact = np.sum(contact_preserving)
+        return num_tgt_contact / num_src_contact
+    ratio_contact_preseving0 = get_contact_preserving(src_foot_contact0, tgt_foot_contact0)
+    ratio_contact_preseving1 = get_contact_preserving(src_foot_contact1, tgt_foot_contact1)
+    print("ratio_contact_preseving0: ", ratio_contact_preseving0)
+    print("ratio_contact_preseving1: ", ratio_contact_preseving1)
+    
 
     """ option """
-    # save
-    if args.save:
-        save_path = './result_saved/' + args.test_proj + '/'
-        os.makedirs(save_path, exist_ok=True)
+    # # save
+    # if args.save:
+    #     save_path = './result_saved/' + args.test_proj + '/'
+    #     os.makedirs(save_path, exist_ok=True)
         
-        target_name0 = target0_character.meshes[0].mesh_gl.name
-        target_name1 = target1_character.meshes[0].mesh_gl.name
-        name = source0_motion_names[0]+'_'+target_name0+'_'+target_name1+'/'
-        os.makedirs(save_path+name, exist_ok=True)
+    #     target_name0 = target0_character.meshes[0].mesh_gl.name
+    #     target_name1 = target1_character.meshes[0].mesh_gl.name
+    #     name = source0_motion_names[0]+'_'+target_name0+'_'+target_name1+'/'
+    #     os.makedirs(save_path+name, exist_ok=True)
         
-        np.save(save_path+name+'jit_output_p0', jit_output_p0.detach().numpy())
-        np.save(save_path+name+'jit_output_p1', jit_output_p1.detach().numpy())
-        np.save(save_path+name+'jit_output_R0', jit_output_R0.detach().numpy())
-        np.save(save_path+name+'jit_output_R1', jit_output_R1.detach().numpy())
-    # render
-    else:
-        from etc.etc import render_result, render_result_and_compare
-        characters, motions = \
-            render_result(args, 
-                        source0_character, source1_character, target0_character, target1_character, 
-                        source_motion0, source_motion1, output_motion0, output_motion1) 
+    #     np.save(save_path+name+'jit_output_p0', jit_output_p0.detach().numpy())
+    #     np.save(save_path+name+'jit_output_p1', jit_output_p1.detach().numpy())
+    #     np.save(save_path+name+'jit_output_R0', jit_output_R0.detach().numpy())
+    #     np.save(save_path+name+'jit_output_R1', jit_output_R1.detach().numpy())
+    # # render
+    # else:
+    #     from etc.etc import render_result, render_result_and_compare
+    #     characters, motions = \
+    #         render_result(args, 
+    #                     source0_character, source1_character, target0_character, target1_character, 
+    #                     source_motion0, source_motion1, output_motion0, output_motion1) 
         
-        app = MyApp(characters, motions, args, net)
-        app_manager.run(app)
+    #     app = MyApp(characters, motions, args, net)
+    #     app_manager.run(app)
 
 def input_motion_translate(args, motion0, motion1):
     translate0 = np.array([0.0, 0, 0.0])
