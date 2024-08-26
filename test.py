@@ -131,7 +131,8 @@ def main(args):
         
         # swap 
         # target1_character, target0_character = tgt0_character, tgt1_character
-        target0_character = tgt1_character
+        target1_character_swap = target1_character
+        target0_character_swap = tgt1_character
         # offset 
         tmp = dataset.target_offsets1.clone()
         dataset.target_offsets1 = dataset.target_offsets0.clone()
@@ -145,13 +146,13 @@ def main(args):
             tmp0, tmp1 = target0_skeleton_idx, target0_finger_idx 
             target0_skeleton_idx, target0_finger_idx = target1_skeleton_idx, target1_finger_idx
             target1_skeleton_idx, target1_finger_idx = tmp0, tmp1
-            
-        # forward 
+        
+        # forward
         jit_output_p0, jit_output_R0, \
         jit_output_p1, jit_output_R1 = \
             net.forward(dataset)
         
-        output_motion0, output_motion1 = \
+        output_motion0_swap, output_motion1_swap = \
             make_new_motions(args, jit_output_p0, jit_output_R0, 
                             jit_output_p1, jit_output_R1, 
                             target0_character, target1_character, 
@@ -240,11 +241,16 @@ def main(args):
         np.save(save_path+name+'jit_output_R1', jit_output_R1.detach().numpy())
     # render
     else:
-        from etc.etc import render_result, render_result_and_compare
+        from etc.etc import render_result, render_compare
+        # characters, motions = \
+        #     render_result(args, 
+        #                 source0_character, source1_character, target0_character, target1_character, 
+        #                 source_motion0, source_motion1, output_motion0, output_motion1) 
+        
         characters, motions = \
-            render_result(args, 
-                        source0_character, source1_character, target0_character, target1_character, 
-                        source_motion0, source_motion1, output_motion0, output_motion1) 
+            render_compare(args, 
+                        source0_character, source1_character, target0_character, target1_character, target0_character_swap, target1_character_swap, 
+                        source_motion0, source_motion1, output_motion0, output_motion1, output_motion0_swap, output_motion1_swap) 
         
         app = MyApp(characters, motions, args, net)
         app_manager.run(app)
