@@ -54,16 +54,17 @@ def detect_foot_contact_from_batched_position(args, position):
     foot_contact_label = torch.zeros((batch_size, len_frame, num_joints), dtype=torch.bool).to(position.device)
     
     # Extract the y-coordinates of the relevant joints
-    # joint_positions = position[:, :, foot_idx, 1]
     # ee 
     foot_idx = args.toe_joints
-    contact_mask = position < args.pene_ths
+    joint_positions = position[:, :, foot_idx, 1]
+    contact_mask = joint_positions < args.toe_pene_ths
     foot_contact_label[:, :, foot_idx] = contact_mask
     
     # Extract the y-coordinates of the relevant joints
     # heel
     foot_idx = args.heel_joints
-    contact_mask = position < args.pene_ths_heel
+    joint_positions = position[:, :, foot_idx, 1]
+    contact_mask = joint_positions < args.heel_pene_ths
     foot_contact_label[:, :, foot_idx] = contact_mask
     
     return foot_contact_label

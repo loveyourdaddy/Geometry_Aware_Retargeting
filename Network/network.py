@@ -402,14 +402,14 @@ class Network():
                                 
                                 # anchor position
                                 # source 
-                                # source_anchor_positions0 = \
-                                #     self.get_anchor_position(cid,
-                                #                              source_offset0, source_R0, source_root_p0, 
-                                #                              anchor_vpos_src_b, anchor_vids_src_b, batch, frame)
-                                # source_anchor_positions1 = \
-                                #     self.get_anchor_position(cid,
-                                #                              source_offset1, source_R1, source_root_p1,
-                                #                              anchor_vpos_src_b, anchor_vids_src_b, batch, frame)
+                                source_anchor_positions0 = \
+                                    self.get_anchor_position(cid,
+                                                             source_offset0, source_R0, source_root_p0, 
+                                                             anchor_vpos_src_b, anchor_vids_src_b, batch, frame)
+                                source_anchor_positions1 = \
+                                    self.get_anchor_position(cid,
+                                                             source_offset1, source_R1, source_root_p1,
+                                                             anchor_vpos_src_b, anchor_vids_src_b, batch, frame)
 
                                 # output
                                 out_anchor_positions0 = \
@@ -422,8 +422,8 @@ class Network():
                                                              anchor_vpos1_Tpose_b, anchor_vids1_b, batch, frame)
                                 
                                 # distance map
-                                # source_anchor_map0 = get_distance_map(source_anchor_positions0, source_anchor_positions1)
-                                # source_anchor_map1 = get_distance_map(source_anchor_positions1, source_anchor_positions0)
+                                source_anchor_map0 = get_distance_map(source_anchor_positions0, source_anchor_positions1)
+                                source_anchor_map1 = get_distance_map(source_anchor_positions1, source_anchor_positions0)
                                 out_anchor_map0 = get_distance_map(out_anchor_positions0, out_anchor_positions1.detach())
                                 out_anchor_map1 = get_distance_map(out_anchor_positions1, out_anchor_positions0.detach())
                                 # loss
