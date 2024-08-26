@@ -101,10 +101,11 @@ def main(args):
     #     resolve_ground_pene(args, output_motion0, output_motion1)
     
     # both two characters retargeted 
-    if True:
+    swap_data = True # False
+    if swap_data:
         # dfm(1) fat, ptn(0) small
         args.test_char = "small"
-        _, _, _, tgt1_character, \
+        _, _, _, tgt0_character, \
             targ0_Tpose, targ1_Tpose, source0_name, source1_name = \
             load_char(args)
         
@@ -112,16 +113,11 @@ def main(args):
             target0_skeleton_idx, target0_finger_idx, target1_skeleton_idx, target1_finger_idx = \
                 get_skeleton_finger_idx(targ0_Tpose, targ1_Tpose)
         
-        # load motion
-        source_motion0 = get_interaction_motions_from_list(source0_name, source0_motion_names)[0]
-        source_motion1 = get_interaction_motions_from_list(source1_name, source1_motion_names)[0]
-        
-        # translate input motion
-        source_motion0, source_motion1 = input_motion_translate(args, source_motion0, source_motion1)
         
         # dataset
         dataset = Dataset(args)
-        dataset.get_char_data(source0_character, source1_character, tgt0_character, tgt1_character)
+        # 여기를 source character을 바꾸면, unseen source character가 될 것 같은데. 잘 되려나?
+        dataset.get_char_data(source0_character, source1_character, tgt0_character, tgt1_character) # target0_character, target1_character,
         
         # motion
         dataset.get_input_motion(output_motion0, output_motion1) # source_motion0, source_motion1
@@ -129,11 +125,12 @@ def main(args):
             dataset.load_norm_info()
             dataset.normalize() 
         
-        # swap 
-        # target1_character, target0_character = tgt0_character, tgt1_character
-        target1_character_swap = target1_character
-        target0_character_swap = tgt1_character
-        # offset 
+        # swap
+        # import pdb; pdb.set_trace()
+        import copy 
+        target1_character_swap = copy.deepcopy(target1_character)
+        target0_character_swap = copy.deepcopy(tgt0_character) # updated
+        # offset
         tmp = dataset.target_offsets1.clone()
         dataset.target_offsets1 = dataset.target_offsets0.clone()
         dataset.target_offsets0 = tmp.clone()
@@ -155,8 +152,16 @@ def main(args):
         output_motion0_swap, output_motion1_swap = \
             make_new_motions(args, jit_output_p0, jit_output_R0, 
                             jit_output_p1, jit_output_R1, 
-                            target0_character, target1_character, 
+                            target0_character_swap, target1_character_swap, 
                             source_motion0, source_motion1)
+        
+        # # post processing
+        # output_motion0, output_motion1 = \
+        #     resolve_ground_pene(args, output_motion0, output_motion1)
+        
+        # output_motion0_swap, output_motion1_swap = \
+        #     resolve_ground_pene(args, output_motion0_swap, output_motion1_swap)
+        
     
     # test with aura mesh
     if False:
@@ -194,6 +199,7 @@ def main(args):
 
     # make motion 
     if args.test_type=="Mixamo":
+        # finger가 없는데 필요한가? 
         # finger motion from source 
         jit_output_p0, jit_output_R0, _ = get_rootP_localR_globalP_from_motion(args, output_motion0.poses)
         jit_output_p1, jit_output_R1, _ = get_rootP_localR_globalP_from_motion(args, output_motion1.poses)
@@ -242,16 +248,17 @@ def main(args):
     # render
     else:
         from etc.etc import render_result, render_compare
-        # characters, motions = \
-        #     render_result(args, 
-        #                 source0_character, source1_character, target0_character, target1_character, 
-        #                 source_motion0, source_motion1, output_motion0, output_motion1) 
-        
-        characters, motions = \
-            render_compare(args, 
-                        source0_character, source1_character, target0_character, target1_character, target0_character_swap, target1_character_swap, 
-                        source_motion0, source_motion1, output_motion0, output_motion1, output_motion0_swap, output_motion1_swap) 
-        
+        if swap_data==False:
+            characters, motions = \
+                render_result(args, 
+                            source0_character, source1_character, target0_character, target1_character, 
+                            source_motion0, source_motion1, output_motion0, output_motion1) 
+        else:
+            characters, motions = \
+                render_compare(args, 
+                            source0_character, source1_character, target0_character, target1_character, target0_character_swap, target1_character_swap, 
+                            source_motion0, source_motion1, output_motion0, output_motion1, output_motion0_swap, output_motion1_swap) 
+            
         app = MyApp(characters, motions, args, net)
         app_manager.run(app)
 

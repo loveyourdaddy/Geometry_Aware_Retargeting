@@ -12,9 +12,10 @@ def get_parser():
     parser.add_argument('--proj_name', type=str, default='')
 
     # test
-    parser.add_argument('--test_proj',  type=str, default='240424_FK100GtDist10_scaled')
-    parser.add_argument('--test_epoch', type=int, default=8000)
+    parser.add_argument('--test_proj',  type=str, default='240826_Gt1Fk100Anchor10_Root10Foot10')
+    parser.add_argument('--test_epoch', type=int, default=1000)
     # 240808_Gt1Fk100Anchor10_Root10Foot10_char01 2000
+    # 240424_FK100GtDist10_scaled 8000
     
     # character
     parser.add_argument('--test_type', type=str, default="Mixamo") # SMPLx Mixamo
@@ -105,7 +106,7 @@ def get_parser():
     
     # ground pene # detect 
     parser.add_argument('--toe_pene_ths', type=float, default=0.04)
-    parser.add_argument('--heel_pene_ths', type=float, default=0.11) # 작을수록 강한 규제
+    parser.add_argument('--heel_pene_ths', type=float, default=0.14) # 작을수록 강한 규제
 
     ''' debug & render '''
     parser.add_argument('--source_pos', type=float, default=-4) # -2

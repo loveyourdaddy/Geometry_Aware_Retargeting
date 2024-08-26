@@ -517,13 +517,13 @@ def resolve_ground_pene(args, output_motion0, output_motion1):
     _, _, output_global_p0 = get_rootP_localR_globalP_from_motion(args, output_motion0.poses)
     _, _, output_global_p1 = get_rootP_localR_globalP_from_motion(args, output_motion1.poses)
     
-    # joint before end effector
-    output_global_p0 = lift_by_pene_val(args, output_global_p0, output_motion0, joint_before_ee, args.pene_ths_heel)
-    output_global_p1 = lift_by_pene_val(args, output_global_p1, output_motion1, joint_before_ee, args.pene_ths_heel)
+    # heel
+    output_global_p0 = lift_by_pene_val(args, output_global_p0, output_motion0, joint_before_ee, args.heel_pene_ths)
+    output_global_p1 = lift_by_pene_val(args, output_global_p1, output_motion1, joint_before_ee, args.heel_pene_ths)
     
-    # end effector
-    output_global_p0 = lift_by_pene_val(args, output_global_p0, output_motion0, end_effector, args.pene_ths)
-    output_global_p1 = lift_by_pene_val(args, output_global_p1, output_motion1, end_effector, args.pene_ths)
+    # toe
+    output_global_p0 = lift_by_pene_val(args, output_global_p0, output_motion0, end_effector, args.toe_pene_ths)
+    output_global_p1 = lift_by_pene_val(args, output_global_p1, output_motion1, end_effector, args.toe_pene_ths)
     
     # update 
     update_motion_by_global_p(output_motion0, output_global_p0)
