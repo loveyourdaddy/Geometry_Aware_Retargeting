@@ -45,7 +45,7 @@ def get_parser():
     """ lambda """
     # base loss
     parser.add_argument('--lambda_rec', type=float, default=1.0)
-    parser.add_argument('--lambda_root', type=float, default=100.0)
+    parser.add_argument('--lambda_root', type=float, default=10.0)
     # fk
     parser.add_argument('--loss_fk', type=str_to_bool, default=True)
     parser.add_argument('--lambda_fk', type=float, default=100.0)
@@ -54,7 +54,7 @@ def get_parser():
     parser.add_argument('--lambda_anchor', type=float, default=10)
     # foot contact loss
     parser.add_argument('--loss_foot_contact', type=str_to_bool, default=True)
-    parser.add_argument('--lambda_foot_contact', type=float, default=1.0)
+    parser.add_argument('--lambda_foot_contact', type=float, default=10.0)
 
     # settings
     parser.add_argument('--learning_rate', type=float, default=2e-4)

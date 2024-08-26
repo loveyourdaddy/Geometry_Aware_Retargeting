@@ -39,7 +39,7 @@ trainset_bvh = {
 
 # target0 (ptn) vs target1 (main, deformed)
 example_bvh = {
-    # "greeting002_S1":"greeting002_S2",
+    "greeting002_S1":"greeting002_S2",
     # "HandShaking_JIS": "HandShaking_SCW",
     # "Medium_03_male_30fps": "Medium_03_female_30fps",
     # "martial_SpinTurn_A": "martial_SpinTurn_B",
@@ -48,7 +48,7 @@ example_bvh = {
     # "jump_crawl001_S1":"jump_crawl001_S2",
     # "push_up001_S1":"push_up001_S2",
     # "stack_push_up001_S1":"stack_push_up001_S2",
-    "one_leg_back_stretch_S1":"one_leg_back_stretch_S2",
+    # "one_leg_back_stretch_S1":"one_leg_back_stretch_S2",
     
     # captured
     # "HuggingNormal_SCW": "HuggingNormal_JIS",
