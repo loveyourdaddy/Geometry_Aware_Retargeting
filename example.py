@@ -33,9 +33,9 @@ motion_name = "Tpose"
 for i, character_name0 in enumerate(names):
     if i==0:
         # trainset
-        scale = 1.2
+        scale = 1.0 # 1.2
     else:
-        scale = 1.3 
+        scale = 0.5 # 1.3 
         
     mesh_scale = scale 
     source0_character, motion0, _ = get_a_character(args, character_name0, template, mesh_scale) # 

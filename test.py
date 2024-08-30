@@ -97,71 +97,69 @@ def main(args):
                         source_motion0, source_motion1)
     
     # post processing
-    # output_motion0, output_motion1 = \
-    #     resolve_ground_pene(args, output_motion0, output_motion1)
+    output_motion0, output_motion1 = \
+        resolve_ground_pene(args, output_motion0, output_motion1)
     
     # both two characters retargeted 
-    swap_data = True # False
+    swap_data = False
     if swap_data:
-        # dfm(1) fat, ptn(0) small
-        args.test_char = "small"
-        _, _, _, tgt0_character, \
-            targ0_Tpose, targ1_Tpose, source0_name, source1_name = \
-            load_char(args)
+        # ptn(0) fat, dfm(1) small
+        # args.test_char = "fat" # fat small
+        target0_name = "Amy"
+        # _, _, _, tgt0_character, \
+        #     targ0_Tpose, targ1_Tpose, source0_name, source1_name = \
+        #     load_char(args)
+            
+        # target0
+        template_Tpose = bvh.load(
+            "../Resource/Tpose_template.bvh", v_forward=[0, 0, 1], v_up=[0, 1, 0]
+        )
+        tgt0_character_again, _, _ = \
+            get_a_character_wo_geo(args, target0_name, template_Tpose)
         
-        if args.test_type=="Mixamo":
-            target0_skeleton_idx, target0_finger_idx, target1_skeleton_idx, target1_finger_idx = \
-                get_skeleton_finger_idx(targ0_Tpose, targ1_Tpose)
+        # if args.test_type=="Mixamo":
+        #     target0_skeleton_idx, target0_finger_idx, target1_skeleton_idx, target1_finger_idx = \
+        #         get_skeleton_finger_idx(targ0_Tpose, targ1_Tpose)
         
         
         # dataset
-        dataset = Dataset(args)
-        # 여기를 source character을 바꾸면, unseen source character가 될 것 같은데. 잘 되려나?
-        dataset.get_char_data(source0_character, source1_character, tgt0_character, tgt1_character) # target0_character, target1_character,
+        # dataset = Dataset(args)
+        # dataset.get_char_data(source0_character, source1_character, tgt0_character_again, tgt1_character) # target0_character, target1_character,
         
-        # motion
-        dataset.get_input_motion(output_motion0, output_motion1) # source_motion0, source_motion1
-        if args.data_normalized:
-            dataset.load_norm_info()
-            dataset.normalize() 
+        # # motion
+        # dataset.get_input_motion(output_motion0, output_motion1) # source_motion0, source_motion1
+        # if args.data_normalized:
+        #     dataset.load_norm_info()
+        #     dataset.normalize() 
         
         # swap
-        # import pdb; pdb.set_trace()
         import copy 
-        target1_character_swap = copy.deepcopy(target1_character)
-        target0_character_swap = copy.deepcopy(tgt0_character) # updated
-        # offset
-        tmp = dataset.target_offsets1.clone()
-        dataset.target_offsets1 = dataset.target_offsets0.clone()
-        dataset.target_offsets0 = tmp.clone()
-        
-        tmp = dataset.target_aabb_max_min1.clone()
-        dataset.target_aabb_max_min1 = dataset.target_aabb_max_min0.clone()
-        dataset.target_aabb_max_min0 = tmp.clone()
-        
-        if args.test_type=="Mixamo":
-            tmp0, tmp1 = target0_skeleton_idx, target0_finger_idx 
-            target0_skeleton_idx, target0_finger_idx = target1_skeleton_idx, target1_finger_idx
-            target1_skeleton_idx, target1_finger_idx = tmp0, tmp1
+        target0_character_swap = tgt0_character_again # copy.deepcopy(tgt0_character_again)
+        target1_character_swap = copy.deepcopy(tgt1_character)
         
         # forward
         jit_output_p0, jit_output_R0, \
         jit_output_p1, jit_output_R1 = \
             net.forward(dataset)
         
+        jit_output_R0 = torch.tensor(np.load('./tmp/local_R0.npy'))
+        jit_output_R1 = torch.tensor(np.load('./tmp/local_R1.npy'))
+        jit_output_p0 = torch.tensor(np.load('./tmp/root_p0.npy'))
+        jit_output_p1 = torch.tensor(np.load('./tmp/root_p1.npy'))
+
         output_motion0_swap, output_motion1_swap = \
-            make_new_motions(args, jit_output_p0, jit_output_R0, 
-                            jit_output_p1, jit_output_R1, 
-                            target0_character_swap, target1_character_swap, 
-                            source_motion0, source_motion1)
+            make_new_motions(args, 
+                             jit_output_p0, jit_output_R0, 
+                             jit_output_p1, jit_output_R1, 
+                             target0_character_swap, target1_character_swap, 
+                             source_motion0, source_motion1)
         
-        # # post processing
+        # post processing
         # output_motion0, output_motion1 = \
         #     resolve_ground_pene(args, output_motion0, output_motion1)
         
-        # output_motion0_swap, output_motion1_swap = \
-        #     resolve_ground_pene(args, output_motion0_swap, output_motion1_swap)
-        
+        output_motion0_swap, output_motion1_swap = \
+            resolve_ground_pene(args, output_motion0_swap, output_motion1_swap)
     
     # test with aura mesh
     if False:
@@ -248,16 +246,22 @@ def main(args):
     # render
     else:
         from etc.etc import render_result, render_compare
+        swap_data = False
         if swap_data==False:
             characters, motions = \
                 render_result(args, 
                             source0_character, source1_character, target0_character, target1_character, 
                             source_motion0, source_motion1, output_motion0, output_motion1) 
+            # characters, motions = \
+            #     render_result(args, 
+            #                 source0_character, source1_character, target0_character_swap, target1_character_swap, 
+            #                 source_motion0, source_motion1, output_motion0_swap, output_motion1_swap) 
         else:
             characters, motions = \
                 render_compare(args, 
                             source0_character, source1_character, target0_character, target1_character, target0_character_swap, target1_character_swap, 
                             source_motion0, source_motion1, output_motion0, output_motion1, output_motion0_swap, output_motion1_swap) 
+            import pdb; pdb.set_trace()
             
         app = MyApp(characters, motions, args, net)
         app_manager.run(app)

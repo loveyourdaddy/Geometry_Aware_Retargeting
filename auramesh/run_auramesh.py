@@ -121,24 +121,40 @@ if __name__ == "__main__":
         time0_ = time.time()
         
         """ col det """
-        tgt_geo_cids0, tgt_auramesh_cids1, jids0, jids1, col_frame = collision_detection(args, src_geoms[0], src_auramesh[1], motion_0, motion_1)
-        # torch.save(cids0, path+'pt/cids0.pt')
-        # torch.save(cids1, path+'pt/cids1.pt')
-        # torch.save(jids0, path+'pt/jids0.pt')
-        # torch.save(jids1, path+'pt/jids1.pt')
-        # torch.save(col_frame, path_+'pt/col_frame.pt')
-        time1_ = time.time()
-        print("time: ", time1_-time0_)
-        # geo_cids1, auramesh_cids0, jids0, jids1, col_frame = collision_detection(args, src_geoms[0], src_auramesh[1], motion_0, motion_1)
-        # time2_ = time.time()
-        # print("time: ", time1-time0)
+        tgt_geo_cids0, tgt_auramesh_cids1, tgt_geo_jids0, tgt_auramesh_jids1, col_frame0 = \
+            collision_detection(args, 
+                                src_geoms[0], src_auramesh[1], 
+                                motion_0, motion_1)
+        torch.save(tgt_geo_cids0,      path+'pt/tgt_geo_cids0.pt')
+        torch.save(tgt_auramesh_cids1, path+'pt/tgt_auramesh_cids1.pt')
+        torch.save(tgt_geo_jids0,      path+'pt/tgt_geo_jids0.pt')
+        torch.save(tgt_auramesh_jids1, path+'pt/tgt_auramesh_jids1.pt')
+        torch.save(col_frame0,         path+'pt/col_frame0.pt')
+        
+        tgt_geo_cids1, tgt_auramesh_cids0, tgt_geo_jids1, tgt_auramesh_jids0, col_frame1 = \
+            collision_detection(args, 
+                                src_geoms[1], src_auramesh[0],
+                                motion_1, motion_0)
+        torch.save(tgt_geo_cids1,      path+'pt/tgt_geo_cids1.pt')
+        torch.save(tgt_auramesh_cids0, path+'pt/tgt_auramesh_cids0.pt')
+        torch.save(tgt_geo_jids1,      path+'pt/tgt_geo_jids1.pt')
+        torch.save(tgt_auramesh_jids0, path+'pt/tgt_auramesh_jids0.pt')
+        torch.save(col_frame1,         path+'pt/col_frame1.pt')
+        
     else:
-        tgt_geo_cids0 = torch.load(path+'pt/cids0.pt')
-        tgt_auramesh_cids1 = torch.load(path+'pt/cids1.pt')
-        jids0 = torch.load(path+'pt/jids0.pt')
-        jids1 = torch.load(path+'pt/jids1.pt')
-        col_frame = torch.load(path+'pt/col_frame.pt')
-        col_frame = np.array(col_frame)
+        tgt_geo_cids0      = torch.load(path+'pt/tgt_geo_cids0.pt')
+        tgt_auramesh_cids1 = torch.load(path+'pt/tgt_auramesh_cids1.pt')
+        tgt_geo_jids0      = torch.load(path+'pt/tgt_geo_jids0.pt')
+        tgt_auramesh_jids1 = torch.load(path+'pt/tgt_auramesh_jids1.pt')
+        col_frame0         = torch.load(path+'pt/col_frame0.pt')
+        col_frame0         = np.array(col_frame0)
+        
+        tgt_geo_cids1      = torch.load(path+'pt/tgt_geo_cids1.pt')
+        tgt_auramesh_cids0 = torch.load(path+'pt/tgt_auramesh_cids0.pt')
+        tgt_geo_jids1      = torch.load(path+'pt/tgt_geo_jids1.pt')
+        tgt_auramesh_jids0 = torch.load(path+'pt/tgt_auramesh_jids0.pt')
+        col_frame1         = torch.load(path+'pt/col_frame1.pt')
+        col_frame1         = np.array(col_frame1)
         print("load collision detection results")
 
     """ target """
@@ -146,33 +162,39 @@ if __name__ == "__main__":
     tgt_names = ["SMPLx", "SMPLx"]
     tgt_chars = []
     for i, name in enumerate(tgt_names):
-        if i ==0:
+        if i==0:
             char, _, _ = get_a_character(args, name)
         else:
-            char, _, _ = get_a_character(args, name, mesh_scale=scale)
+            char, _, _ = get_a_character(args, name, mesh_scale=scale) # mesh_scale=scale
         tgt_chars.append(char)
 
     # target motion: zero rot
     tgt_motion_0 = copy.deepcopy(motion_0)
     tgt_motion_1 = copy.deepcopy(motion_1)
-    for pose in tgt_motion_0.poses:
-        pose.local_R = np.identity(3)[None, :].repeat(22, axis=0).astype(np.float32)
-        pose.update()
-    for pose in tgt_motion_1.poses:
+    
+    # set char 0 Tpose (update 0)
+    # for pose in tgt_motion_0.poses:
         # pose.local_R = np.identity(3)[None, :].repeat(22, axis=0).astype(np.float32)
+        # pose.update()
+    # set char 1 Tpose (update 1)
+    for pose in tgt_motion_1.poses:
+        pose.local_R = np.identity(3)[None, :].repeat(22, axis=0).astype(np.float32)
         pose.root_p[1] *= scale
         pose.update()
 
     # set skeleton
     tgt_chars[0].set_source_skeleton(tgt_motion_0.skeleton, "")
     tgt_chars[1].set_source_skeleton(tgt_motion_1.skeleton, "")
-
+    
     # scale
     if small:
         leg_scale, body_scale, hand_scale = scale, scale, scale
         root_scale = leg_scale
         from Retarget_SMPL.retarget_smpl import scale_character 
         scale_character(args, tgt_chars[1], leg_scale, body_scale, hand_scale)
+        for pose in tgt_motion_1.poses:
+            pose.update()
+
 
     # load geo
     tgt_geoms = get_character_geometry(args, tgt_names, tgt_chars)
@@ -201,45 +223,35 @@ if __name__ == "__main__":
         vids1 = src_auramesh[1].cid_to_first_vid[tgt_auramesh_cids1[i]]
         tgt_auramesh_vids1.append(vids1)
     
-    # tgt_geo_vids1, tgt_auramesh_vids0 = [], []
-    # num_col = len(tgt_geo_cids1)
-    # for i in range(num_col):
-    #     # geo of 0
-    #     vids1 = tgt_geoms[1].cid_to_first_vid[tgt_geo_cids1[i]]
-    #     tgt_geo_vids1.append(vids1)
+    tgt_geo_vids1, tgt_auramesh_vids0 = [], []
+    num_col = len(tgt_geo_cids1)
+    for i in range(num_col):
+        # geo of 0
+        vids1 = tgt_geoms[1].cid_to_first_vid[tgt_geo_cids1[i]]
+        tgt_geo_vids1.append(vids1)
 
-    #     # auramesh of 1
-    #     vids0 = src_auramesh[0].cid_to_first_vid[tgt_auramesh_cids0[i]]
-    #     tgt_auramesh_vids0.append(vids0)
+        # auramesh of 1
+        vids0 = src_auramesh[0].cid_to_first_vid[tgt_auramesh_cids0[i]]
+        tgt_auramesh_vids0.append(vids0)
     
     
     """ optimize """
     # optimize: 0 ptn
     # auramesh : 1 main (dfm)
     
-    import time
-    time0 = time.time()
     # update motion0 (ptn)
-    tgt_motion_0 = optimize_motion(args,
-        motion_0, tgt_motion_0, 
-        tgt_geoms[0], tgt_auramesh[1],
-        tgt_geo_vids0, tgt_auramesh_vids1,
-        col_frame, jids0, jids1)
-    
-    time1 = time.time()
+    # tgt_motion_0 = optimize_motion(args,
+    #     motion_0, tgt_motion_0, 
+    #     tgt_geoms[0], tgt_auramesh[1],
+    #     tgt_geo_vids0, tgt_auramesh_vids1,
+    #     col_frame0, tgt_geo_jids0, tgt_auramesh_jids1)
 
     # update motion1 (main)
-    # tgt_motion_1 = optimize_motion(args,
-    #     motion_1, tgt_motion_1, 
-    #     tgt_geoms[1], tgt_auramesh[0],
-    #     tgt_geo_vids1, tgt_auramesh_vids0,
-    #     col_frame, jids1, jids0)
-    
-    time2 = time.time()
-    print("time: ", time1-time0)
-    print("time: ", time2-time1)
-    print("time: ", time2-time0)
-    # print("time: ", time2-time0_)
+    tgt_motion_1 = optimize_motion(args,
+        motion_1, tgt_motion_1, 
+        tgt_geoms[1], tgt_auramesh[0],
+        tgt_geo_vids1, tgt_auramesh_vids0,
+        col_frame1, tgt_geo_jids1, tgt_auramesh_jids0)
     
     
     """ interpolate """

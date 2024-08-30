@@ -12,14 +12,17 @@ def get_parser():
     parser.add_argument('--proj_name', type=str, default='')
 
     # test
-    parser.add_argument('--test_proj',  type=str, default='240826_Gt1Fk100Anchor10_Root10Foot10')
-    parser.add_argument('--test_epoch', type=int, default=1000)
-    # 240808_Gt1Fk100Anchor10_Root10Foot10_char01 2000
+    parser.add_argument('--test_proj',  type=str, default='240804_Gt1Root10Fk100Anchor10_footContact')
+    parser.add_argument('--test_epoch', type=int, default=2000)
     # 240424_FK100GtDist10_scaled 8000
+    # 240808_Gt1Fk100Anchor10_Root10Foot10_char01 2000
+    # 240826_Gt1Fk100Anchor10_Root30Foot10 2000
+    # 240826_Gt1Fk100Anchor10_Root1Foot10_foot014 500 1000
+    # 240826_Gt1Fk100Anchor10_Root10Foot10_foot014 1500
     
     # character
-    parser.add_argument('--test_type', type=str, default="Mixamo") # SMPLx Mixamo
-    parser.add_argument('--test_char', type=str, default="fat") # render type
+    parser.add_argument('--test_type', type=str, default="SMPLx") # SMPLx Mixamo
+    parser.add_argument('--test_char', type=str, default="small") # small
     parser.add_argument('--role_change', type=str_to_bool, default=False)  # True False
     
     """ setting """
@@ -45,17 +48,18 @@ def get_parser():
 
     """ lambda """
     # base loss
-    parser.add_argument('--lambda_rec', type=float, default=1.0)
-    parser.add_argument('--lambda_root', type=float, default=10.0)
+    parser.add_argument('--lambda_rec', type=float, default=1.0) # lambda1
+    parser.add_argument('--lambda_anchor', type=float, default=10.0) # lambda2
+    parser.add_argument('--lambda_root', type=float, default=10.0) # lambda3
+    # lambda4(Rotation loss) 1
+    parser.add_argument('--lambda_fk', type=float, default=100.0) # lambda 5
+    parser.add_argument('--lambda_foot_contact', type=float, default=10.0) # lambda6 (additional)
     # fk
     parser.add_argument('--loss_fk', type=str_to_bool, default=True)
-    parser.add_argument('--lambda_fk', type=float, default=100.0)
     # anchor loss
     parser.add_argument('--loss_anchor', type=str_to_bool, default=True)
-    parser.add_argument('--lambda_anchor', type=float, default=10)
     # foot contact loss
     parser.add_argument('--loss_foot_contact', type=str_to_bool, default=True)
-    parser.add_argument('--lambda_foot_contact', type=float, default=10.0)
 
     # settings
     parser.add_argument('--learning_rate', type=float, default=2e-4)
@@ -105,8 +109,8 @@ def get_parser():
     parser.add_argument('--right_hand_joints', type=list, default=[18, 19, 20, 21])
     
     # ground pene # detect 
-    parser.add_argument('--toe_pene_ths', type=float, default=0.04)
-    parser.add_argument('--heel_pene_ths', type=float, default=0.14) # 작을수록 강한 규제
+    parser.add_argument('--toe_pene_ths',  type=float, default=0.02)
+    parser.add_argument('--heel_pene_ths', type=float, default=0.06) # 작을수록 강한 규제 # 클수록 변화하는게 보임
 
     ''' debug & render '''
     parser.add_argument('--source_pos', type=float, default=-4) # -2
