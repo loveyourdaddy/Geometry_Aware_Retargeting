@@ -97,8 +97,8 @@ def main(args):
                         source_motion0, source_motion1)
     
     # post processing
-    output_motion0, output_motion1 = \
-        resolve_ground_pene(args, output_motion0, output_motion1)
+    # output_motion0, output_motion1 = \
+    #     resolve_ground_pene(args, output_motion0, output_motion1)
     
     # both two characters retargeted 
     swap_data = False
