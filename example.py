@@ -21,7 +21,7 @@ template = bvh.load(
 )
 
 # char
-names = ["SMPLx", "SMPLx"]
+names = ["SMPLx_fat", "SMPLx_fat"]
 # names = ["SMPLx_fat", "SMPLx_fat"] # Ybot Amy SMPLx Remy Leonard Amy Ortiz
 characters, motions = [], []
 geos = []
@@ -35,20 +35,20 @@ for i, character_name0 in enumerate(names):
         # trainset
         scale = 1.0 # 1.2
     else:
-        scale = 0.5 # 1.3 
+        scale = 2.0 # 0.5 # 1.3 
         
     mesh_scale = scale 
     source0_character, motion0, _ = get_a_character(args, character_name0, template, mesh_scale) # 
     
-    # scale offset
-    leg_scale, body_scale, hand_scale = scale, scale, scale
-    root_scale = leg_scale
-    from Retarget_SMPL.retarget_smpl import scale_character 
-    scale_character(args, source0_character, leg_scale, body_scale, hand_scale)
-    # motion 
-    for pose in motion0.poses:
-        pose.root_p[1] *= scale
-        pose.update()
+    # # scale offset
+    # leg_scale, body_scale, hand_scale = scale, scale, scale
+    # root_scale = leg_scale
+    # from Retarget_SMPL.retarget_smpl import scale_character 
+    # scale_character(args, source0_character, leg_scale, body_scale, hand_scale)
+    # # motion 
+    # for pose in motion0.poses:
+    #     pose.root_p[1] *= scale
+    #     pose.update()
 
 
     if i==0: # trainset
@@ -59,11 +59,11 @@ for i, character_name0 in enumerate(names):
     characters.append(source0_character)
     motions.append(motion0)
 
-distance = 3
-for i, motion in enumerate(motions):
-    for pose in motion.poses:
-        # pose.translate_root_p([i*distance, 0, 0])
-        pose.translate_root_p([0, 0, -i*distance])
+# distance = 3
+# for i, motion in enumerate(motions):
+#     for pose in motion.poses:
+#         # pose.translate_root_p([i*distance, 0, 0])
+#         pose.translate_root_p([0, 0, -i*distance])
 
 app = MyApp(characters, motions, args)
 app_manager.run(app)

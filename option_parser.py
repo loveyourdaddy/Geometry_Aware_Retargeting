@@ -12,18 +12,11 @@ def get_parser():
     parser.add_argument('--proj_name', type=str, default='')
 
     # test
-    parser.add_argument('--test_proj',  type=str, default='240826_Gt1Fk100Anchor10_Root1Foot10_foot014')
-    parser.add_argument('--test_epoch', type=int, default=1000)
-    # 240424_FK100GtDist10_scaled 8000
-    # 240808_Gt1Fk100Anchor10_Root10Foot10_char01 2000
-    # 240804_Gt1Root10Fk100Anchor10_footContact 2000
-    # 240826_Gt1Fk100Anchor10_Root30Foot10 500 
-    # 240826_Gt1Fk100Anchor10_Root1Foot10_foot014 500 1000
-    # 240826_Gt1Fk100Anchor10_Root10Foot10_foot014 1500
-    # 240826_Gt1Fk100Anchor10_Root1Foot1 3000
+    parser.add_argument('--test_proj',  type=str, default='240804_Gt1Root10Fk100Anchor10_footContact')
+    parser.add_argument('--test_epoch', type=int, default=2000)
     
     # character
-    parser.add_argument('--test_type', type=str, default="Mixamo") # SMPLx Mixamo
+    parser.add_argument('--test_type', type=str, default="SMPLx") # SMPLx Mixamo
     parser.add_argument('--test_char', type=str, default="fat") # small
     parser.add_argument('--role_change', type=str_to_bool, default=False)  # True False
     
