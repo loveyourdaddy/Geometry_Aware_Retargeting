@@ -102,14 +102,14 @@
               <a href="https://vml.kaist.ac.kr/main/people/person/128">Chaelin Kim</a><sup>1</sup>,
             </span>
             <span class="author-block">
-              <a href="https://vml.kaist.ac.kr/main/people/person/1">Junyong Noh</a><sup>1</sup>,
+              <a href="https://vml.kaist.ac.kr/main/people/person/1">Junyong Noh</a><sup>1</sup>
             </span>
           </div>
 
           <!-- Company -->
           <div class="is-size-5 publication-authors">
-            <span class="author-block"><sup>1</sup>KAIST,</span>
-            <span class="author-block"><sup>2</sup>KAI Inc.</span>
+            <span class="author-block">KAIST<sup>1</sup>,</span>
+            <span class="author-block">KAI Inc.<sup>2</sup></span>
           </div>
 
           <div class="column has-text-centered">
@@ -249,25 +249,12 @@
           <p>
             Interactive motion between multiple characters is widely utilized in games and movies. 
             However, the method for generating interactive motions considering the character's diverse mesh shape has yet to be studied. 
-            <!-- We present the first method capable of photorealistically reconstructing a non-rigidly
-            deforming scene using photos/videos captured casually from mobile phones. -->
+            We propose a novel method for geometry-aware motion retargeting for two-character interaction.
           </p>
           <p>
-            We propose a novel method for geometry-aware motion retargeting for two-character interaction.
-            
-            We propose a Spatio Cooperative Transformer (SCT) to retarget the interacting motions of two characters having arbitrary mesh connectivity. SCT predicts the residual of root position and joint rotations considering the shape difference between the source and target of interacting characters. 
-            We introduce an anchor loss function for SCT to maintain the geometric distance between the interacting characters when they are retargeted. 
-            We also propose a motion augmentation method with deformation-based adaptation to prepare a source-target paired dataset with an identical mesh connectivity for training. 
-            <!-- Our approach augments neural radiance fields
-            (NeRF) by optimizing an
-            additional continuous volumetric deformation field that warps each observed point into a
-            canonical 5D NeRF.
-            We observe that these NeRF-like deformation fields are prone to local minima, and
-            propose a coarse-to-fine optimization method for coordinate-based models that allows for
-            more robust optimization.
-            By adapting principles from geometry processing and physical simulation to NeRF-like
-            models, we propose an elastic regularization of the deformation field that further
-            improves robustness. -->
+            A Spatio Cooperative Transformer (SCT) is to retarget the interacting motions of two characters having arbitrary mesh connectivity. 
+            An anchor loss function for SCT is to maintain the geometric distance between the interacting characters when they are retargeted. 
+            A motion augmentation method with deformation-based adaptation is to prepare a source-target paired dataset with an identical mesh connectivity for training. 
           </p>
         </div>
       </div>
@@ -279,8 +266,11 @@
       <div class="column is-four-fifths">
         <h2 class="title is-3">Video</h2>
         <div class="publication-video">
-          <iframe src="https://www.youtube.com/watch?v=Igl9ghJEVG8"
+          <iframe src="https://youtu.be/Igl9ghJEVG8?si=UW2SjB2HxCGyS8ts"
                   frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+          
+        <!-- allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowfullscreen> -->
         </div>
       </div>
     </div>
@@ -295,13 +285,13 @@
     <pre><code>@article{park2021nerfies,
   author    = {Jang, Inseo and Choi, Soojin and Hong, Seokhyeon and Kim, Chaelin and Noh, Junyong},
   title     = {Geometry-aware motion retargeting for two-character interaction},
-  doi = {10.1145/3687962}, 
-  <!-- https://doi.org/10.1145/3687962 -->
+  doi       = {10.1145/3687962}, 
   journal   = {ACM Trans. Graph.},
   year      = {2024},
 }</code></pre>
   </div>
 </section>
+<!-- https://doi.org/10.1145/3687962 -->
 
 
 <footer class="footer">
