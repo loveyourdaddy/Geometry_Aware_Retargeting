@@ -35,9 +35,14 @@ def main(args):
 
     """ load data """
     # load character 
+    # import time 
+    # time0 = time.time()
     source0_character, source1_character, tgt0_character, tgt1_character, \
         targ0_Tpose, targ1_Tpose, source0_name, source1_name = \
         load_char(args)
+    # time1 = time.time()
+    # print("load char time: ", time1-time0)
+    # import pdb; pdb.set_trace()
     
     if args.test_type=="Mixamo":
         target0_skeleton_idx, target0_finger_idx, target1_skeleton_idx, target1_finger_idx = \
@@ -80,7 +85,7 @@ def main(args):
         target0_character, target1_character = tgt0_character, tgt1_character
     
     
-    # Network
+    ''' Network '''
     net = Network(args)
     net.load(args.test_proj + '/' , args.test_epoch, device=args.device)
     net.eval()
@@ -97,8 +102,8 @@ def main(args):
                         source_motion0, source_motion1)
     
     # post processing
-    # output_motion0, output_motion1 = \
-    #     resolve_ground_pene(args, output_motion0, output_motion1)
+    output_motion0, output_motion1 = \
+        resolve_ground_pene(args, output_motion0, output_motion1)
     
     # both two characters retargeted 
     swap_data = False
@@ -203,7 +208,7 @@ def main(args):
         jit_output_p1, jit_output_R1, _ = get_rootP_localR_globalP_from_motion(args, output_motion1.poses)
         output_motion0 = make_new_motion(jit_output_p0, jit_output_R0, target0_character, source_motion0)
         output_motion1 = make_new_motion(jit_output_p1, jit_output_R1, target1_character, source_motion1)
-        
+    
     # check foot contact preserving
     if False:
         src_foot_contact0 = detect_foot_contact(args, source_motion0)
@@ -272,8 +277,8 @@ def input_motion_translate(args, motion0, motion1):
     
     if motion0.name == "move_03_03_male_30fps":
         translate1 = np.array([+0.1, 0, -0.1])
-    elif motion0.name == "one_leg_back_stretch_S1":
-        translate1 = np.array([0, 0, +0.1])
+    # elif motion0.name == "one_leg_back_stretch_S1":
+    #     translate1 = np.array([0, 0, +0.1])
     else:
         return motion0, motion1
     print("input motion1 translated in {}".format(translate1))

@@ -16,9 +16,10 @@ def get_parser():
     parser.add_argument('--test_epoch', type=int, default=2000)
     
     # character
-    parser.add_argument('--test_type', type=str, default="SMPLx") # SMPLx Mixamo
+    parser.add_argument('--test_type', type=str, default="Mixamo") # SMPLx Mixamo
     parser.add_argument('--test_char', type=str, default="fat") # small
-    parser.add_argument('--role_change', type=str_to_bool, default=False)  # True False
+    parser.add_argument('--role_change', type=str_to_bool, default=False)
+    parser.add_argument('--subsampled', type=str_to_bool, default=True)
     
     """ setting """
     parser.add_argument('--save', type=str_to_bool, default=False)

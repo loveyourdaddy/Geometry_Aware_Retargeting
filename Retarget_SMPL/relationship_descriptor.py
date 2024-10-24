@@ -54,12 +54,12 @@ def retarget_one_motion(args,
     #     len_root_anchor = len(geo_source_ptn.root_descriptor_vids)
     #     root_batch = torch.tensor([0]).repeat(len_frame, len_root_anchor).to(args.device)
     #     root_frame = torch.arange(len_frame).unsqueeze(-1).repeat(1, len_root_anchor).to(args.device)
-        
+    
     #     root_descriptor_vids = torch.tensor(geo_source_ptn.root_descriptor_vids).to(args.device)
     #     root_charB_vpos1 = geo_source_ptn.get_positions_from_vids(root_descriptor_vids.repeat(len_frame, 1), root_batch, root_frame)
     #     root_desc1_to_joint0 = charA_global_p0[:, :, None, :] - root_charB_vpos1[:, None, :, :]  # pj - di
     #     dist_root_desc1_to_joint0 = torch.norm(root_desc1_to_joint0, dim=-1)  # ||pj - di||
-        
+    
     #     updated_root_charB_vpos1 = geo_target_ptn.get_positions_from_vids(root_descriptor_vids.repeat(len_frame, 1), root_batch, root_frame)
     
     """ update motion A """
@@ -210,6 +210,7 @@ def update_by_part(args, anchor_vids,
         diff = scale_diff_by_dist(diff, torch.min(dist_desc_to_joint, dim=-1)[0]) # .unsqueeze(-1).repeat(1,1,3)
         diff = diff[:, 0].unsqueeze(1).repeat(1, args.num_joint, 1)
         ret_global_p0 = source_global_p0 + diff[:, 0].unsqueeze(1).repeat(1, args.num_joint, 1)
+    
     # update spine, limb
     else: 
         output_global_p0 = \
