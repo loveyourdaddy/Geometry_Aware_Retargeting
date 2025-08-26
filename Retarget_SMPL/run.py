@@ -1,6 +1,18 @@
+"""
+python Retarget_SMPL/run.py
+"""
+
 import os
 import sys
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
+
+current_file = os.path.abspath(__file__)
+retarget_smpl_dir = os.path.dirname(current_file)  # Retarget_SMPL
+geometry_aware_dir = os.path.dirname(retarget_smpl_dir)  # geometry_aware_retargeting
+workspace_dir = os.path.dirname(geometry_aware_dir)  # Retargeting_workspace
+# sys.path.append(geometry_aware_dir)
+sys.path.append(workspace_dir)
+
 import time
 import datetime
 from datasets.motion_functions import *
@@ -69,7 +81,7 @@ print("deformed_names:", deformed_names)
 motion_name0s = RD_bvh.keys()
 motion_name1s = RD_bvh.values()
 
-scales = np.load("scales_sampled.npy")
+scales = np.load("scale_values/scales_sampled.npy")
 # print("{} listOfNumbers: {}".format(deformed_name, scales))
 
 time0 = time.time()

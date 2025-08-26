@@ -118,12 +118,10 @@ def retarget_one_motion(args,
                         limb_r2_dist=1/10, limb_pow_lambda=1/10)
     # pene 
     # heel 
-    ret_global_p0 = lift_by_pene_val(
-        args, ret_global_p0, updated_motion0, args.foot_heel_index, args.pene_ths_heel)
+    ret_global_p0 = lift_by_pene_val(args, ret_global_p0, updated_motion0, args.heel_joints, args.toe_pene_ths)
     # ee joint
-    ret_global_p0 = lift_by_pene_val(
-        args, ret_global_p0, updated_motion0, args.foot_ee_index, args.pene_ths)
-    
+    ret_global_p0 = lift_by_pene_val(args, ret_global_p0, updated_motion0, args.toe_joints,  args.heel_pene_ths)
+
     # edit by range 
     if args.update_by_clampping_range:
         _, _, original_global_p0 = get_rootP_localR_globalP_from_motion(
