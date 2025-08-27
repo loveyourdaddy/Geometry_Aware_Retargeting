@@ -19,7 +19,7 @@ def get_parser():
     parser.add_argument('--test_type', type=str, default="Mixamo") # SMPLx Mixamo
     parser.add_argument('--test_char', type=str, default="fat") # small
     parser.add_argument('--role_change', type=str_to_bool, default=False)
-    parser.add_argument('--subsampled', type=str_to_bool, default=True)
+    parser.add_argument('--subsampled', type=str_to_bool, default=False) # True
     
     """ setting """
     parser.add_argument('--save', type=str_to_bool, default=False)
@@ -35,7 +35,7 @@ def get_parser():
     parser.add_argument('--char_info', type=str, default="length")
     parser.add_argument('--normalize_char_info', type=str_to_bool, default=False)
     parser.add_argument('--data_normalized', type=str_to_bool, default=False)
-    parser.add_argument('--target_characters', type=arg_as_list, default=["SMPLx", "SMPLx_fat"])
+    parser.add_argument('--target_characters', type=arg_as_list, default=["SMPLx", "SMPLx"]) # SMPLx_fat
     parser.add_argument('--motion0', type=str, default="")
     parser.add_argument('--motion1', type=str, default="")
     parser.add_argument('--SMPLx_scale', type=float, default=1.0)

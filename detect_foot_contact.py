@@ -34,13 +34,13 @@ def detect_foot_contact_from_position(args, position):
     # ee 
     foot_idx = args.toe_joints
     joint_positions = position[:, foot_idx, 1]
-    contact_mask = joint_positions < args.pene_ths
+    contact_mask = joint_positions < args.toe_pene_ths
     foot_contact_label[:, foot_idx] = contact_mask
     
     # before ee
     foot_idx = args.heel_joints
     joint_positions = position[:, foot_idx, 1]
-    contact_mask = joint_positions < args.pene_ths_heel
+    contact_mask = joint_positions < args.heel_pene_ths
     foot_contact_label[:, foot_idx] = contact_mask
     
     return foot_contact_label

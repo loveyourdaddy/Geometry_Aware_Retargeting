@@ -8,8 +8,7 @@ from datasets.motion_functions import *
 import option_parser
 from etc.etc import *
 from pymovis.motion.ops.torchmotion import *
-from option_motion import example_bvh
-from Retarget_SMPL.relationship_descriptor import get_rootP_localR_globalP_from_motion
+from pymovis.motion.data.fbx import FBX
 
 app_manager = AppManager()
 args = option_parser.get_args()
@@ -21,43 +20,28 @@ template = bvh.load(
 )
 
 # char
-names = ["SMPLx_fat", "SMPLx_fat"]
-# names = ["SMPLx_fat", "SMPLx_fat"] # Ybot Amy SMPLx Remy Leonard Amy Ortiz
+names = ["Leonard"] # "SMPLx",  "YBot" "Leonard" "Remy" "Amy" "Ortiz" "SMPLx"
 characters, motions = [], []
-geos = []
-vids = []
-vpositions = []
-after_vpositions = []
-motion_name = "Tpose"
-
-for i, character_name0 in enumerate(names):
-    if i==0:
-        # trainset
-        scale = 1.0 # 1.2
-    else:
-        scale = 2.0 # 0.5 # 1.3 
-        
-    mesh_scale = scale 
-    source0_character, motion0, _ = get_a_character(args, character_name0, template, mesh_scale) # 
+for i, name in enumerate(names):
+    path = "../Resource/models/{}.fbx".format(name)
+    fbx = FBX(path, name)
+    character = fbx.model()
+    Tpose = bvh.load(
+        "../Resource/motions/single_motion/{}/Tpose.bvh".format(name),
+        v_forward=[0, 0, 1],
+        v_up=[0, 1, 0],
+    )
     
-    # # scale offset
-    # leg_scale, body_scale, hand_scale = scale, scale, scale
-    # root_scale = leg_scale
-    # from Retarget_SMPL.retarget_smpl import scale_character 
-    # scale_character(args, source0_character, leg_scale, body_scale, hand_scale)
-    # # motion 
-    # for pose in motion0.poses:
-    #     pose.root_p[1] *= scale
-    #     pose.update()
-
-
-    if i==0: # trainset
-        for mesh in source0_character.meshes:
-            mesh.materials[0].alpha=0.5
+    if template is None:
+        template = bvh.load(
+            "../Resource/Tpose_template.bvh", v_forward=[0, 0, 1], v_up=[0, 1, 0]
+        )
+    # Tpose = refine_motion(Tpose, template)
     
-    source0_character.set_source_skeleton(motion0.skeleton, "") # MIXAMO_BVH_TO_FBX
-    characters.append(source0_character)
-    motions.append(motion0)
+    # character.set_source_skeleton(Tpose.skeleton, "") # MIXAMO_BVH_TO_FBX
+    character.set_source_skeleton(Tpose.skeleton, MIXAMO_BVH_TO_FBX)
+    characters.append(character)
+    motions.append(Tpose)
 
 # distance = 3
 # for i, motion in enumerate(motions):

@@ -26,7 +26,9 @@ character_ptn = character_normal
 
 # character_dfm
 deformed_name = args.target_characters[1] # 0 1
-index = -1 # 0~9 3 7 
+# 0~9 3 7
+index = 0 # small
+# index = -1 # fat
 character_dfm, Tpose_deformed, = get_a_smpl_character_wo_geo(args, deformed_name, scale=0.7)
 
 # role
@@ -65,7 +67,6 @@ characters, motions = \
     render_result(args,
                   character_normal, character_normal, character_ptn, character_dfm,
                   motion0, motion1, motionA, motionB)
-
 
 # foot contact 
 # by motion

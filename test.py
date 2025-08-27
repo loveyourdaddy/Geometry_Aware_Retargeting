@@ -35,14 +35,9 @@ def main(args):
 
     """ load data """
     # load character 
-    # import time 
-    # time0 = time.time()
     source0_character, source1_character, tgt0_character, tgt1_character, \
         targ0_Tpose, targ1_Tpose, source0_name, source1_name = \
         load_char(args)
-    # time1 = time.time()
-    # print("load char time: ", time1-time0)
-    # import pdb; pdb.set_trace()
     
     if args.test_type=="Mixamo":
         target0_skeleton_idx, target0_finger_idx, target1_skeleton_idx, target1_finger_idx = \
