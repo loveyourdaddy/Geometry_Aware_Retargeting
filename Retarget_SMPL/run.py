@@ -1,5 +1,6 @@
 """
-python Retarget_SMPL/run.py
+Apply adapation and save for all motion
+    python Retarget_SMPL/run.py
 """
 
 import os
@@ -10,8 +11,8 @@ current_file = os.path.abspath(__file__)
 retarget_smpl_dir = os.path.dirname(current_file)  # Retarget_SMPL
 geometry_aware_dir = os.path.dirname(retarget_smpl_dir)  # geometry_aware_retargeting
 workspace_dir = os.path.dirname(geometry_aware_dir)  # Retargeting_workspace
-# sys.path.append(geometry_aware_dir)
 sys.path.append(workspace_dir)
+# sys.path.append(geometry_aware_dir)
 
 import time
 import datetime
@@ -72,24 +73,22 @@ args = option_parser.get_args()
 args.device = "cpu"
 
 """ source character, moiton """
-# characater0
 character_nor, _, geometry_nor = get_a_smpl_character(args, "SMPLx")
-deformed_names = args.target_characters # TODO [1:2]
+deformed_names = ["SMPLx_fat"] # args.target_characters # TODO [1:2]
 print("deformed_names:", deformed_names)
 
 # motion
 motion_name0s = RD_bvh.keys()
 motion_name1s = RD_bvh.values()
 
-scales = np.load("scale_values/scales_sampled.npy")
-# print("{} listOfNumbers: {}".format(deformed_name, scales))
+# scales = np.load("scale_values/scales_sampled.npy")
+scales = [[1.0, 1.0, 1.0]]
 
+# Retarget start
 time0 = time.time()
 time_start = time.time()
 for deformed_name in deformed_names:
-
-    """ target character, moiton """
-    # characater dfm 
+    # Set deform character, motion 
     character_dfm, Tpose_dfm, geometry_dfm = get_a_smpl_character(args, deformed_name)
     dfm_offsets = []
     for i in range(22): 
@@ -118,8 +117,8 @@ for deformed_name in deformed_names:
 
         # limb target by relational rescritor
         ptn_root_joints, ptn_spine_joints, ptn_limb_joints, \
-        dfm_root_joints, dfm_spine_joints, dfm_limb_joints = \
-            update_target_joints(args, motion_name0, motion_name1)
+        dfm_root_joints, dfm_spine_joints, dfm_limb_joints = update_target_joints(args, motion_name0, motion_name1)
+        
         # only for fat 
         ptn_spine_joints = [] 
         if motion_name0 in ptn_spine_for_fat and deformed_name=="SMPLx_fat":
@@ -143,6 +142,7 @@ for deformed_name in deformed_names:
                 ptn_root_joints, ptn_spine_joints, ptn_limb_joints,
                 dfm_root_joints, dfm_spine_joints, dfm_limb_joints,
                 root_p_ptn, local_R_ptn, root_p_dfm, local_R_dfm)
+            
             if rid==0:
                 root_p0s.append(root_p_ptn)
                 local_R0s.append(local_R_ptn)
@@ -153,14 +153,15 @@ for deformed_name in deformed_names:
                 local_R0s.append(local_R_dfm)
                 root_p1s.append(root_p_ptn)
                 local_R1s.append(local_R_ptn)
-                
-        np.save(file_path + '{}_root_p0.npy'.format(motion_name0), np.array(root_p0s))
-        np.save(file_path + '{}_root_p1.npy'.format(motion_name0), np.array(root_p1s))
-        np.save(file_path + '{}_local_R0.npy'.format(motion_name0), np.array(local_R0s))
-        np.save(file_path + '{}_local_R1.npy'.format(motion_name0), np.array(local_R1s))
+        
+        # save 
+        # np.save(file_path + '{}_root_p0.npy'.format(motion_name0), np.array(root_p0s))
+        # np.save(file_path + '{}_root_p1.npy'.format(motion_name0), np.array(root_p1s))
+        # np.save(file_path + '{}_local_R0.npy'.format(motion_name0), np.array(local_R0s))
+        # np.save(file_path + '{}_local_R1.npy'.format(motion_name0), np.array(local_R1s))
         
         time_now = time.time()
-        print("{} : {} saved in ".format(deformed_name, motion_name0), datetime.timedelta(seconds=time_now - time0))
+        print("[{}] {} : {} ({}f) saved in {}".format(datetime.datetime.now().strftime("%H:%M:%S"), deformed_name, motion_name0, len(motion0.poses), datetime.timedelta(seconds=time_now - time0)))
         time0 = time_now
     time_end = time.time()
-    print("Done: ", datetime.timedelta(seconds=(time_end - time_start)))
+    print("[{}] Done: {}".format(datetime.datetime.now().strftime("%H:%M:%S"), datetime.timedelta(seconds=(time_end - time_start))))

@@ -20,12 +20,13 @@ args.path = args.proj_name + '/'
 
 
 # character_dfm
+args.test_type = "SMPLx" # SMPLx Mixamo
 args.target_characters[1] = "SMPLx" # SMPLx_fat
 deformed_name = args.target_characters[1]
 
 # scale index (0~9 3 7)
 index = 0 # small 
-# index = -1 # fat
+# index = 7 # fat
 # role
 role_change = False
 
@@ -34,7 +35,7 @@ role_change = False
 source_name = "SMPLx"
 character_normal, Tpose_normal, _ = get_a_smpl_character(args, source_name)
 character_ptn = character_normal
-character_dfm, Tpose_deformed, = get_a_smpl_character_wo_geo(args, deformed_name, scale=0.7)
+character_dfm, Tpose_deformed = get_a_smpl_character_wo_geo(args, deformed_name, scale=0.7)
 
 """ load edited motion """
 # original motion
@@ -45,11 +46,11 @@ motion0 = get_interaction_motions_from_list("SMPLx", motion_keys)[idx_in_example
 motion1 = get_interaction_motions_from_list("SMPLx", motion_values)[idx_in_example]
 motion_name = list(motion_keys)[idx_in_example] # original motion of example BVH list
 
-# load saved edited motion
-# index 
+# scale
 scales = get_scale()
 scale = scales[index]
-# scale
+# scale = [1.0, 1.0, 1.0]
+
 leg_scale  = scale[0]
 body_scale = scale[1]
 hand_scale = scale[2]
@@ -59,7 +60,8 @@ if role_change==False:
     rid = 0
 else:
     rid = 1
-    
+
+# load saved edited motion
 # copy and paste motion
 motionA, motionB = \
     load_edited_npy_motion(args, motion0, motion1, deformed_name, motion_name,

@@ -37,11 +37,6 @@ def retarget_smpl(args,
                                          edited_motion1, edited_motion0,
                                          root_joints=dfm_root_joints, spine_joints=dfm_spine_joints, limb_joints=dfm_limb_joints)
 
-    # if pene:렁
-    #     joints = [15,16,17, 19,20,21]
-    #     ptn_joints = list(range(22))
-    #     collision_check_and_resolve(args, geo_target0, geo_target1, edited_motion0, motion1, joints, ptn_joints)
-
     # output
     root_p0, local_R0, _ = get_rootP_localR_globalP_from_motion(
         args, edited_motion0.poses)
@@ -83,7 +78,8 @@ def load_edited_npy_motion(args, motionA, motionB, char_name, motion_name,
         scale_offset(args, motion1, leg_scale, body_scale, hand_scale)
     else:
         scale_offset(args, motion0, leg_scale, body_scale, hand_scale)
-    
+
+    # load
     root_p0  = np.load('./edited_RD/{}/{}_root_p0.npy' .format(char_name, motion_name))[rid, sid]
     local_R0 = np.load('./edited_RD/{}/{}_local_R0.npy'.format(char_name, motion_name))[rid, sid]
     root_p1  = np.load('./edited_RD/{}/{}_root_p1.npy' .format(char_name, motion_name))[rid, sid]
@@ -213,7 +209,7 @@ if __name__ == '__main__':
         dfm_root_joints, dfm_spine_joints, dfm_limb_joints = \
         update_target_joints(args, motion_name0, motion_name1)
     
-    # target motion : why doing this?
+    # target motion
     motion_ptn = deepcopy(motion0)
     motion_dfm = deepcopy(motion1)
     if args.adapt_char == "SMPLx":
@@ -241,15 +237,10 @@ if __name__ == '__main__':
         # else:
         #     scales = np.load("./scale_values/scales_fat.npy")
 
-        # leg_idx = index
-        # body_idx = index
-        # hand_idx = index
-        # leg_scale = scales[leg_idx]
-        # body_scale = scales[body_idx]
-        # hand_scale = scales[hand_idx]
+        # leg_idx = index # body_idx = index # hand_idx = index
+        # leg_scale = scales[leg_idx] # body_scale = scales[body_idx] # hand_scale = scales[hand_idx]
         leg_scale, body_scale, hand_scale = 1, 1, 1
-        print("leg_scale {}, body_scale {}, hand_scale {} ".format(
-            leg_scale, body_scale, hand_scale))
+        print("leg_scale {}, body_scale {}, hand_scale {} ".format(leg_scale, body_scale, hand_scale))
 
         # scale by joint
         root_scale = leg_scale
