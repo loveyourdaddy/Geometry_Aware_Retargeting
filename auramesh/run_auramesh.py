@@ -1,29 +1,32 @@
-import sys
 # python을 실행시키는 path 기준: 
-# python auramesh/run_auramesh.py 
+'''
+python auramesh/run_auramesh.py 
+'''
+
+import sys
 sys.path.append('./')
 sys.path.append('../') # Retargeting_workspace
 
 from pymovis.vis.appmanager import AppManager
 from pymovis.vis.app import MotionApp
-from pymovis.vis.model import Model
-from pymovis.vis.render import Render
-from pymovis.motion.data import bvh
-from pymovis.motion.data.fbx import FBX
-from pymovis.motion.core import Pose, Motion
+from pymovis.motion.core import Motion # Pose, 
 from pymovis.motion.ops.npmotion import *
 
-# from datasets import *
-from datasets.character_functions import get_a_character
+from datasets.character_functions import get_a_smpl_character as get_a_character
 from datasets.motion_functions import get_interaction_motions_from_list
+from Geometry.geometry import Geometry
+from Geometry.compare_geometry import collision_detection # , update_boundary_position
 
-# from Geometry.geometry import Geometry
-from Geometry.auramesh import AuraMesh
-from Geometry.compare_geometry import collision_detection, update_boundary_position
+
+class AuraMesh(Geometry):
+    def __init__(self, args, character, name=None, dist=0.1, scale=1):
+        super().__init__(args, character, name)
+        self.v_position *= scale
+        self.v_position = self.v_position + self.c_normal[self.vid_to_cid] * dist
+
 from Retarget_SMPL.relationship_descriptor import get_rootP_localR_globalP_from_motion, get_rootP_localR_globalP_from_numpy_motion
-
 from optimize_funcitons import *
-from typing import List, Optional
+from typing import List # , Optional
 
 import option_parser
 from option_motion import example_bvh
@@ -31,6 +34,12 @@ import copy
 import numpy as np
 import torch
 import copy
+# from pymovis.vis.model import Model
+# from pymovis.vis.render import Render
+# from pymovis.motion.data import bvh
+# from pymovis.motion.data.fbx import FBX
+# from datasets import *
+# from Geometry.geometry import Geometry
 
 
 class MyApp(MotionApp):
@@ -140,7 +149,6 @@ if __name__ == "__main__":
         torch.save(tgt_geo_jids1,      path+'pt/tgt_geo_jids1.pt')
         torch.save(tgt_auramesh_jids0, path+'pt/tgt_auramesh_jids0.pt')
         torch.save(col_frame1,         path+'pt/col_frame1.pt')
-        
     else:
         tgt_geo_cids0      = torch.load(path+'pt/tgt_geo_cids0.pt')
         tgt_auramesh_cids1 = torch.load(path+'pt/tgt_auramesh_cids1.pt')
@@ -157,7 +165,7 @@ if __name__ == "__main__":
         col_frame1         = np.array(col_frame1)
         print("load collision detection results")
 
-    """ target """
+    """ Set target character  """
     # target character
     tgt_names = ["SMPLx", "SMPLx"]
     tgt_chars = []
@@ -307,25 +315,22 @@ if __name__ == "__main__":
         tgt_motion_0.poses[f].translate_root_p([args.joint_pos, 0, 0])
         tgt_motion_1.poses[f].translate_root_p([args.joint_pos, 0, 0])
     
-    # render 
+    # 
     chars =[]
     aurameshes = []
     motions = []
-    
     # src 
     for char in src_chars:
         chars.append(char)
     aurameshes.append(src_auramesh[1])
     motions.append(motion_0)
     motions.append(motion_1)
-    
     # target 
     for char in tgt_chars:
         chars.append(char)
     aurameshes.append(tgt_auramesh[1])
     motions.append(tgt_motion_0)
     motions.append(tgt_motion_1)
-
     # render 
     app = MyApp(chars, aurameshes, motions, args)
     app_manager.run(app)
