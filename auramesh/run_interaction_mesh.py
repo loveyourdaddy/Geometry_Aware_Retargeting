@@ -2,8 +2,11 @@
 Interaction Mesh based motion retargeting.
 Ho et al., "Spatial Relationship Preserving Character Motion Adaptation", ACM TOG 2010.
 
-Run from geometry_aware_retargeting directory:
-    python auramesh/run_interaction_mesh.py
+레퍼런스: Physics-based-retargeting/interaction_mesh.py
+주요 변경:
+  - L-BFGS 대신 closed-form LS (M_lap @ rhs), 프레임당 행렬곱 1회
+  - update_motion_by_global_p → per-joint swing 계산 (multi-child 버그 수정)
+  - Bone-length rescaling으로 스케일 스켈레톤 적합성 보장
 """
 
 import sys
@@ -11,18 +14,20 @@ sys.path.append('./')
 sys.path.append('../')
 
 import copy
-import datetime
 import numpy as np
-import torch
+from OpenGL.GL import glDisable, glEnable, GL_DEPTH_TEST
 
 from pymovis.vis.appmanager import AppManager
 from pymovis.vis.app import MotionApp
+from pymovis.vis.render import Render
 from pymovis.motion.ops.npmotion import *
 
 from datasets.character_functions import get_a_smpl_character as get_a_character
 from datasets.motion_functions import get_interaction_motions_from_list
+import torch
 from Retarget_SMPL.relationship_descriptor import (
     get_rootP_localR_globalP_from_motion,
+    get_rootP_localR_globalP_from_numpy_motion,
     update_motion_by_global_p,
 )
 from Retarget_SMPL.retarget_smpl import scale_character
@@ -30,149 +35,152 @@ from Retarget_SMPL.retarget_smpl import scale_character
 import option_parser
 from option_motion import example_bvh
 from auramesh.interaction_mesh import InteractionMesh
-from xalglib import xalglib
 
 
-# ─── Energy terms ────────────────────────────────────────────────────────────
+# ── Bone-length utilities ────────────────────────────────────────────────────
 
 def _get_bone_lengths(skeleton):
-    """Target bone lengths from skeleton joint offsets."""
+    """타겟 스켈레톤의 bone 길이 배열 (joint offset 기준)."""
     return np.array([np.linalg.norm(j.offset) for j in skeleton.joints])
 
 
-def _bone_energy_grad(pos1, parent_idx, target_lengths, lam=10.0):
+def _rescale_bone_lengths(pos, parent_idx, target_lengths):
     """
-    Soft bone-length constraint.
-    E = lam * Σ_e ( ||p_j - p_parent||² - l_e² )²
+    위상 순서(SMPL: parent < child)로 각 bone을 target_lengths[j] 길이로 정규화.
+    root(joint 0) 위치는 고정.
     """
-    grad = np.zeros_like(pos1)
-    energy = 0.0
-    for j in range(1, len(pos1)):
+    pos_out = pos.copy()
+    for j in range(1, len(pos)):
         p = parent_idx[j]
         if p < 0:
             continue
-        diff = pos1[j] - pos1[p]
-        dist_sq = float(np.dot(diff, diff))
-        res = dist_sq - target_lengths[j] ** 2
-        energy += lam * res ** 2
-        g = lam * 4.0 * res * diff
-        grad[j] += g
-        grad[p] -= g
-    return energy, grad
+        bone = pos_out[j] - pos_out[p]
+        length = np.linalg.norm(bone)
+        if length > 1e-7 and target_lengths[j] > 1e-7:
+            pos_out[j] = pos_out[p] + bone / length * target_lengths[j]
+    return pos_out
 
 
-def _source_follow_energy_grad(pos1, src_pos1, lam=1.0):
+# ── Main retargeting ─────────────────────────────────────────────────────────
+
+class DebugApp(MotionApp):
+    """MotionApp 확장: B 키로 args.debug_points (최적화 관절 위치) 표시."""
+
+    def render(self):
+        super().render()
+
+        if not self.draw_debug:
+            return
+        debug_pts = getattr(self.args, 'debug_points', None)
+        if debug_pts is None:
+            return
+
+        pts = debug_pts[self.frame]  # (J, 3) numpy
+
+        if not hasattr(self, '_debug_sphere'):
+            self._debug_sphere = Render.sphere(0.03)
+
+        glDisable(GL_DEPTH_TEST)
+        for p in pts:
+            (self._debug_sphere
+             .set_position(float(p[0]), float(p[1]), float(p[2]))
+             .set_albedo([1.0, 1.0, 0.0])   # 노란색
+             .set_color_mode(True)
+             .draw())
+        glEnable(GL_DEPTH_TEST)
+
+
+def retarget_with_interaction_mesh(args, src_motion_0, tgt_motion_1, im,
+                                   alpha=0.8):
     """
-    Source-pose following term (keeps optimization near source).
-    E = lam * ||pos1 - src_pos1||²
-    """
-    diff = pos1 - src_pos1
-    energy = lam * float(np.sum(diff ** 2))
-    grad = lam * 2.0 * diff
-    return energy, grad
+    Closed-form Interaction Mesh 기반 리타겟팅 (레퍼런스 방식).
 
-
-# ─── Per-frame optimization ───────────────────────────────────────────────────
-
-def _optimize_frame(f, pos0_t, src_pos1_t, delta_t, im, parent_idx, target_lengths,
-                    lam_bone=10.0, lam_follow=0.5):
-    """Optimize char1 global positions for one frame using L-BFGS."""
-
-    def func_grad(x, grad, param=None):
-        x_np = np.array(x, dtype=np.float64)
-        pos1 = x_np.reshape(im.n1, 3)
-
-        e_lap, g_lap = im.compute_energy_and_grad(x_np, pos0_t, delta_t)
-        e_bone, g_bone = _bone_energy_grad(pos1, parent_idx, target_lengths, lam_bone)
-        e_fol, g_fol = _source_follow_energy_grad(pos1, src_pos1_t, lam_follow)
-
-        total_e = e_lap + e_bone + e_fol
-        total_g = g_lap + g_bone.flatten() + g_fol.flatten()
-
-        for i in range(len(grad)):
-            grad[i] = float(total_g[i])
-        return float(total_e)
-
-    x0 = src_pos1_t.flatten().tolist()
-    state = xalglib.minlbfgscreate(5, x0)
-    xalglib.minlbfgssetcond(state, 0.0, 0.0, 1e-6, 100)
-    xalglib.minlbfgsoptimize_g(state, func_grad)
-    x_opt, _ = xalglib.minlbfgsresults(state)
-
-    return np.array(x_opt, dtype=np.float64).reshape(im.n1, 3)
-
-
-# ─── Main retargeting function ────────────────────────────────────────────────
-
-def retarget_with_interaction_mesh(args, src_motion_0, src_motion_1,
-                                   tgt_motion_1, im, lam_bone=10.0, lam_follow=0.5):
-    """
-    Optimize tgt_motion_1 to preserve interaction mesh Laplacian from source.
-    src_motion_0 acts as the fixed pattern character (char0).
-    char1 positions are optimized per frame.
+    알고리즘:
+      1. 각 프레임: pos1_lap = M_lap @ (delta_src - LA @ pos0)   [행렬곱 1회]
+         → Laplacian 보존 최적 위치 (≈ 소스 char1 위치)
+      2. tgt_gp1_init (스케일 초기값)와 alpha 블렌드
+         alpha=1: 완전 Laplacian(상호작용 보존), alpha=0: 초기값 유지
+      3. Root는 스케일된 초기 위치로 고정
+      4. Bone-length rescaling (위상 순서)
+      5. Per-joint local_R 계산 (swing+twist, multi-child 안전)
 
     Args:
-        src_motion_0: source pattern motion (char0, fixed)
-        src_motion_1: source deformed motion (char1, reference)
-        tgt_motion_1: target motion to optimize (initialized, e.g. T-pose)
-        im:           InteractionMesh built from source motions
-        lam_bone:     weight for bone-length soft constraint
-        lam_follow:   weight for source-pose following term
-    Returns:
-        Optimized tgt_motion_1
+        src_motion_0: char0 소스 모션 (고정 앵커)
+        tgt_motion_1: char1 타겟 모션 (초기화: 소스 회전 + 스케일 skeleton)
+        im:           InteractionMesh (소스에서 빌드)
+        alpha:        Laplacian vs 초기값 블렌드 가중치 (0~1)
     """
-    skeleton_1 = tgt_motion_1.skeleton
-    parent_idx = skeleton_1.parent_idx
+    skeleton_1     = tgt_motion_1.skeleton
+    parent_idx     = skeleton_1.parent_idx
     target_lengths = _get_bone_lengths(skeleton_1)
 
-    # Source char0 positions (fixed anchors): (T, n0, 3)
+    # char0 소스 위치 (T, 22, 3) — 고정 앵커
     _, _, src_gp0 = get_rootP_localR_globalP_from_motion(args, src_motion_0.poses)
     src_gp0 = src_gp0.numpy().astype(np.float64)
 
-    # Source char1 positions (for initialization / follow term): (T, n1, 3)
-    _, _, src_gp1 = get_rootP_localR_globalP_from_motion(args, src_motion_1.poses)
-    src_gp1 = src_gp1.numpy().astype(np.float64)
+    # char1 초기 글로벌 위치 (스케일 적용 후)
+    _, _, tgt_gp1_init = get_rootP_localR_globalP_from_numpy_motion(args, tgt_motion_1.poses)
+    tgt_gp1_init = tgt_gp1_init.numpy().astype(np.float64)   # (T, 22, 3)
 
-    T = len(src_motion_0.poses)
-    optimized_p1 = np.zeros((T, im.n1, 3), dtype=np.float64)
+    T = len(tgt_motion_1.poses)
+    print(f"Retargeting {T} frames (closed-form LS, alpha={alpha:.2f})...")
 
-    print(f"Optimizing {T} frames...")
-    t0 = datetime.datetime.now()
+    all_pos1_final = np.zeros((T, im.n1, 3), dtype=np.float32)
 
     for f in range(T):
-        optimized_p1[f] = _optimize_frame(
-            f,
-            src_gp0[f],
-            src_gp1[f],
-            im.src_laplacian[f],
-            im,
-            parent_idx,
-            target_lengths,
-            lam_bone=lam_bone,
-            lam_follow=lam_follow,
-        )
+        # 1. Laplacian closed-form: pos1_lap ≈ src_gp1 (소스 위치)
+        pos1_lap = im.compute_target_positions(
+            src_gp0[f], im.src_laplacian[f]
+        )  # (22, 3)
+
+        # 2. alpha 블렌드 (root 제외)
+        pos1_init_f  = tgt_gp1_init[f]
+        pos1_blended = (1.0 - alpha) * pos1_init_f + alpha * pos1_lap
+        pos1_blended[0] = pos1_init_f[0]  # root는 스케일된 초기 위치 고정
+
+        # 3. Bone-length rescaling
+        pos1_final = _rescale_bone_lengths(pos1_blended, parent_idx, target_lengths)
+
+        all_pos1_final[f] = pos1_final.astype(np.float32)
+
         if (f + 1) % 50 == 0 or f == T - 1:
-            elapsed = (datetime.datetime.now() - t0).total_seconds()
-            print(f"  [{datetime.datetime.now().strftime('%H:%M:%S')}] "
-                  f"Frame {f+1}/{T}  ({elapsed:.1f}s elapsed)")
+            print(f"  Frame {f+1}/{T}")
 
-    # Convert optimized global positions back to local rotations
-    opt_tensor = torch.tensor(optimized_p1, dtype=torch.float32)
-    update_motion_by_global_p(tgt_motion_1, opt_tensor)
+    # spine2(11), leftshoulder(14), rightshoulder(18) rotation 고정
+    FIXED_JOINTS = [11, 14, 18]
+    saved_lr = [
+        tgt_motion_1.poses[f].local_R[FIXED_JOINTS].copy()
+        for f in range(T)
+    ]
 
+    # 전체 모션 pose 업데이트 (local_R, root_p)
+    update_motion_by_global_p(
+        tgt_motion_1,
+        torch.tensor(all_pos1_final, dtype=torch.float32)
+    )
+
+    # 고정 관절 rotation 복원
+    for f in range(T):
+        tgt_motion_1.poses[f].local_R[FIXED_JOINTS] = saved_lr[f]
+        tgt_motion_1.poses[f].update()
+
+    # 디버그용: 최적화된 관절 위치 저장 (DebugApp이 렌더링에 사용)
+    args.debug_points = all_pos1_final  # (T, 22, 3)
+
+    print("Done.")
     return tgt_motion_1
 
 
-# ─── Main ────────────────────────────────────────────────────────────────────
+# ── Main ─────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     app_manager = AppManager()
     args = option_parser.get_args()
     args.path = args.proj_name + '/'
     args.device = 'cpu'
-    scale = 0.7  # target char1 body scale
+    scale = 0.7
 
-    # ── Source ──
+    # ── 소스 캐릭터 & 모션 ──
     src_names = ["SMPLx", "SMPLx"]
     src_chars = []
     for name in src_names:
@@ -183,6 +191,8 @@ if __name__ == "__main__":
     motion_name1 = list(example_bvh.values())[0]
     motion_0 = get_interaction_motions_from_list(src_names[0], [motion_name0])[0]
     motion_1 = get_interaction_motions_from_list(src_names[0], [motion_name1])[0]
+    # motion_0.poses = motion_0.poses[:10]
+    # motion_1.poses = motion_1.poses[:10]
 
     src_chars[0].set_source_skeleton(motion_0.skeleton, "")
     src_chars[1].set_source_skeleton(motion_1.skeleton, "")
@@ -190,13 +200,13 @@ if __name__ == "__main__":
     print(f"Source motions: {motion_name0} ({len(motion_0.poses)}f), "
           f"{motion_name1} ({len(motion_1.poses)}f)")
 
-    # ── Build Interaction Mesh ──
+    # ── InteractionMesh 빌드 (소스 기준) ──
     print("\nBuilding Interaction Mesh from source motions...")
     _, _, src_gp0 = get_rootP_localR_globalP_from_motion(args, motion_0.poses)
     _, _, src_gp1 = get_rootP_localR_globalP_from_motion(args, motion_1.poses)
     im = InteractionMesh(src_gp0.numpy(), src_gp1.numpy())
 
-    # ── Target ──
+    # ── 타겟 캐릭터 & 모션 ──
     tgt_names = ["SMPLx", "SMPLx"]
     tgt_chars = []
     for i, name in enumerate(tgt_names):
@@ -209,42 +219,34 @@ if __name__ == "__main__":
     tgt_motion_0 = copy.deepcopy(motion_0)
     tgt_motion_1 = copy.deepcopy(motion_1)
 
-    # Initialize char1 target motion: T-pose with scaled root height
+    # char1 초기화: 소스 회전 유지 + root Y 스케일
     for pose in tgt_motion_1.poses:
-        pose.local_R = np.identity(3)[None, :].repeat(22, axis=0).astype(np.float32)
         pose.root_p[1] *= scale
         pose.update()
 
     tgt_chars[0].set_source_skeleton(tgt_motion_0.skeleton, "")
     tgt_chars[1].set_source_skeleton(tgt_motion_1.skeleton, "")
 
-    # Scale char1 skeleton offsets
+    # char1 skeleton 스케일 적용
     scale_character(args, tgt_chars[1], scale, scale, scale)
     for pose in tgt_motion_1.poses:
         pose.update()
 
-    # ── Optimize ──
+    # ── Retarget ──
     print("\nRetargeting with Interaction Mesh...")
-    t_start = datetime.datetime.now()
     tgt_motion_1 = retarget_with_interaction_mesh(
-        args,
-        motion_0, motion_1,
-        tgt_motion_1, im,
-        lam_bone=10.0,
-        lam_follow=0.5,
+        args, motion_0, tgt_motion_1, im, alpha=0.8
     )
-    t_total = datetime.datetime.now() - t_start
-    print(f"Total: {t_total}")
 
-    # ── Render ──
+    # ── 렌더 ──
     for f in range(len(motion_0.poses)):
         motion_0.poses[f].translate_root_p([args.source_pos, 0, 0])
         motion_1.poses[f].translate_root_p([args.source_pos, 0, 0])
         tgt_motion_0.poses[f].translate_root_p([args.joint_pos, 0, 0])
         tgt_motion_1.poses[f].translate_root_p([args.joint_pos, 0, 0])
 
-    chars = src_chars + tgt_chars
+    chars   = src_chars + tgt_chars
     motions = [motion_0, motion_1, tgt_motion_0, tgt_motion_1]
 
-    app = MotionApp(chars, motions, args)
+    app = DebugApp(chars, motions, args)
     app_manager.run(app)

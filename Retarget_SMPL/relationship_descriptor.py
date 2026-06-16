@@ -146,7 +146,7 @@ def update_motion_by_global_p(motion, update_global_p):
         pose.update()
 
     return motion
-    
+
 from pymovis.motion.ops import torchmotion
 def update_pose_by_global_p(local_R, global_p, global_R, 
                             skeleton, update_global_p):
@@ -267,7 +267,6 @@ def lift_by_pene_val(args, ret_global_p0, motion, end_effectors, pene_ths):
         for j, _ in enumerate(pene_joints):
             updated_joints[f, j] = 1
 
-        # import pdb; pdb.set_trace()
         # for f in range(len_frame):
         # position updated by offset
         pose = motion.poses[f]
