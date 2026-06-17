@@ -2,6 +2,8 @@
 Interaction Mesh based motion retargeting.
 Ho et al., "Spatial Relationship Preserving Character Motion Adaptation", ACM TOG 2010.
 
+python auramesh/run_interaction_mesh.py
+
 레퍼런스: Physics-based-retargeting/interaction_mesh.py
 주요 변경:
   - L-BFGS 대신 closed-form LS (M_lap @ rhs), 프레임당 행렬곱 1회
@@ -17,6 +19,7 @@ import copy
 import time
 import numpy as np
 from OpenGL.GL import glDisable, glEnable, GL_DEPTH_TEST
+import os 
 
 from pymovis.vis.appmanager import AppManager
 from pymovis.vis.app import MotionApp
@@ -245,6 +248,18 @@ if __name__ == "__main__":
         args, motion_0, tgt_motion_1, im, alpha=0.8
     )
 
+    # ── Save results ──
+    save_dir = "./auramesh/saved_result/"
+    os.makedirs(save_dir, exist_ok=True)
+    name0 = os.path.splitext(os.path.basename(motion_name0))[0]
+    name1 = os.path.splitext(os.path.basename(motion_name1))[0]
+    for motion, name, idx in [(tgt_motion_0, name0, 0), (tgt_motion_1, name1, 1)]:
+        root_p  = np.stack([pose.root_p  for pose in motion.poses])  # (T, 3)
+        local_R = np.stack([pose.local_R for pose in motion.poses])  # (T, J, 3, 3)
+        path = os.path.join(save_dir, f"im_{name}_s{idx}.npz")
+        np.savez(path, root_p=root_p, local_R=local_R)
+        print(f"Saved: {path}  root_p={root_p.shape}  local_R={local_R.shape}")
+
     # ── 렌더 ──
     for f in range(len(motion_0.poses)):
         motion_0.poses[f].translate_root_p([args.source_pos, 0, 0])
@@ -255,5 +270,5 @@ if __name__ == "__main__":
     chars   = src_chars + tgt_chars
     motions = [motion_0, motion_1, tgt_motion_0, tgt_motion_1]
 
-    app = DebugApp(chars, motions, args)
-    app_manager.run(app)
+    # app = DebugApp(chars, motions, args)
+    # app_manager.run(app)

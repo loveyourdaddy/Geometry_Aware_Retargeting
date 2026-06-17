@@ -109,6 +109,7 @@ def optimize_motion(args,
         # goal2: preserve skin-level contact points
         col_ids = col_ids_per_frame.get(f, np.array([], dtype=int))
         if len(col_ids) == 0:
+            grad_np[:9] = 0.0  # root rotation excluded from optimization
             grad[:] = grad_np.tolist()
             return func
 
@@ -168,6 +169,7 @@ def optimize_motion(args,
             grad_np += (dLdP @ dPdX)[0]
             _tm['jacobian'] += time.perf_counter() - _t0
 
+        grad_np[:9] = 0.0  # root rotation excluded from optimization
         grad[:] = grad_np.tolist()
         return func
 
@@ -212,6 +214,37 @@ def optimize_motion(args,
             )
 
     print(f"\n=== optimize_motion total: {_t_opt_total:.1f}s  ({_t_opt_total/T*1e3:.1f}ms/frame) ===")
+
+    # ── Post-processing: temporal Gaussian smoothing ──
+    # 가장 많이 변한 프레임(f_max)의 displacement를 기준으로 주변 프레임에 Gaussian으로 확산.
+    sigma = 5  # 확산 범위 (프레임 단위)
+    src_local_R_all = np.stack([p.local_R for p in src_motion.poses])   # (T, J, 3, 3)
+    tgt_local_R_all = np.stack([p.local_R for p in tgt_motion.poses])   # (T, J, 3, 3)
+    delta_R = tgt_local_R_all - src_local_R_all                          # (T, J, 3, 3)
+
+    # root rotation (joint 0) 제외 후 displacement 크기 계산
+    delta_no_root = delta_R.copy()
+    delta_no_root[:, 0] = 0.0
+    disp = np.linalg.norm(delta_no_root.reshape(T, -1), axis=1)         # (T,)
+
+    f_max = int(np.argmax(disp))
+    w = np.exp(-0.5 * ((np.arange(T) - f_max) / sigma) ** 2)           # (T,) Gaussian weights
+    # 각 프레임에 f_max displacement를 가중치만큼 혼합
+    smooth_delta = delta_R[f_max][None] * w[:, None, None, None]        # (T, J, 3, 3)
+    smoothed_R = src_local_R_all + smooth_delta
+    # root rotation은 소스 그대로 유지
+    smoothed_R[:, 0] = src_local_R_all[:, 0]
+
+    smoothed_R = normalize_rotation_matrix(
+        smoothed_R.reshape(-1, 3, 3)
+    ).reshape(T, -1, 3, 3)
+
+    for f in range(T):
+        tgt_motion.poses[f].local_R = smoothed_R[f]
+        tgt_motion.poses[f].update()
+
+    print(f"Smoothing done: f_max={f_max}  peak_disp={disp[f_max]:.4f}  sigma={sigma}")
+
     return tgt_motion
 
 

@@ -217,6 +217,18 @@ if __name__ == "__main__":
         col_frames1, geo_jids1, am_jids0,
     )
 
+    # ── Save results ──
+    save_dir = "./auramesh/saved_result/"
+    os.makedirs(save_dir, exist_ok=True)
+    name0 = os.path.splitext(os.path.basename(motion_name0))[0]
+    name1 = os.path.splitext(os.path.basename(motion_name1))[0]
+    for motion, name, idx in [(tgt_motion_0, name0, 0), (tgt_motion_1, name1, 1)]:
+        root_p  = np.stack([pose.root_p  for pose in motion.poses])  # (T, 3)
+        local_R = np.stack([pose.local_R for pose in motion.poses])  # (T, J, 3, 3)
+        path = os.path.join(save_dir, f"am_{name}_s{idx}.npz")
+        np.savez(path, root_p=root_p, local_R=local_R)
+        print(f"Saved: {path}  root_p={root_p.shape}  local_R={local_R.shape}")
+
     # ── Render ──
     T = len(motion_0.poses)
     for f in range(T):
@@ -231,5 +243,5 @@ if __name__ == "__main__":
     # aurameshes = src_auramesh + tgt_auramesh
     # am_motions = [motion_0, motion_1, tgt_motion_0, tgt_motion_1]
     # app = MyApp(chars, motions, args, aurameshes=aurameshes, am_motions=am_motions)
-    app = MyApp(chars, motions, args)
-    app_manager.run(app)
+    # app = MyApp(chars, motions, args)
+    # app_manager.run(app)
