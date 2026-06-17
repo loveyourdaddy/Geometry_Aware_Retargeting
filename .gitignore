@@ -98,7 +98,6 @@ save/*
 /captured_videos/*
 /result_saved/*
 Comparsion/*
-evaluation/*
 macro/*
 scale_values/*
 auramesh/*.npy
