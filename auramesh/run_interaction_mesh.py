@@ -14,6 +14,7 @@ sys.path.append('./')
 sys.path.append('../')
 
 import copy
+import time
 import numpy as np
 from OpenGL.GL import glDisable, glEnable, GL_DEPTH_TEST
 
@@ -124,6 +125,7 @@ def retarget_with_interaction_mesh(args, src_motion_0, tgt_motion_1, im,
 
     T = len(tgt_motion_1.poses)
     print(f"Retargeting {T} frames (closed-form LS, alpha={alpha:.2f})...")
+    t_start = time.perf_counter()
 
     all_pos1_final = np.zeros((T, im.n1, 3), dtype=np.float32)
 
@@ -143,8 +145,7 @@ def retarget_with_interaction_mesh(args, src_motion_0, tgt_motion_1, im,
 
         all_pos1_final[f] = pos1_final.astype(np.float32)
 
-        if (f + 1) % 50 == 0 or f == T - 1:
-            print(f"  Frame {f+1}/{T}")
+    t_lap = time.perf_counter()
 
     # spine2(11), leftshoulder(14), rightshoulder(18) rotation 고정
     FIXED_JOINTS = [11, 14, 18]
@@ -164,10 +165,16 @@ def retarget_with_interaction_mesh(args, src_motion_0, tgt_motion_1, im,
         tgt_motion_1.poses[f].local_R[FIXED_JOINTS] = saved_lr[f]
         tgt_motion_1.poses[f].update()
 
+    t_end = time.perf_counter()
+
+    print(f"Done.  total={t_end - t_start:.2f}s  "
+          f"(laplacian={t_lap - t_start:.2f}s, "
+          f"pose_update={t_end - t_lap:.2f}s, "
+          f"{(t_end - t_start) / T * 1000:.1f}ms/frame)")
+
     # 디버그용: 최적화된 관절 위치 저장 (DebugApp이 렌더링에 사용)
     args.debug_points = all_pos1_final  # (T, 22, 3)
 
-    print("Done.")
     return tgt_motion_1
 
 
