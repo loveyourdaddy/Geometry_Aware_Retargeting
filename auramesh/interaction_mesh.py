@@ -17,6 +17,7 @@ char0가 고정일 때 char1 최적 위치는 LS 문제:
 런타임 비용: 프레임당 행렬곱 1회
 """
 
+import time
 import numpy as np
 from scipy.spatial import Delaunay
 from collections import defaultdict
@@ -47,18 +48,25 @@ class InteractionMesh:
             [positions_0, positions_1], axis=1
         ).astype(np.float64)  # (T, 44, 3)
 
+        t0 = time.perf_counter()
+
         # frame 0 topology 고정 (포즈에 크게 무관)
         self._build_laplacian_matrix(self.src_positions[0])
+        t_lap = time.perf_counter()
 
         # 소스 Laplacian 좌표 사전 계산: delta[t] = L @ src_positions[t]
         self.src_laplacian = np.einsum(
             'ij,tjk->tik', self.L, self.src_positions
         )  # (T, 44, 3)
+        t_delta = time.perf_counter()
 
         n_tet = Delaunay(self.src_positions[0]).simplices.shape[0]
         print(f"InteractionMesh: {self.n} vertices ({self.n0}+{self.n1}), "
-              f"{T} frames, {n_tet} tetrahedra  |  "
-              f"M_lap {self.M_lap.shape}")
+              f"{T} frames, {n_tet} tetrahedra  |  M_lap {self.M_lap.shape}")
+        print(f"  build={t_lap - t0:.3f}s  "
+              f"(delaunay+L={self._t_delaunay:.3f}s, pinv={self._t_pinv:.3f}s)  "
+              f"delta_precompute={t_delta - t_lap:.3f}s  "
+              f"total={t_delta - t0:.3f}s")
 
     # ------------------------------------------------------------------
     # Laplacian 행렬 구축 (uniform weight, 레퍼런스 방식)
@@ -78,6 +86,7 @@ class InteractionMesh:
             M_lap = pinv(LB)   (n1 × n)
             런타임: pos1_opt = M_lap @ rhs,   rhs = delta_src - LA @ pos0
         """
+        _t0 = time.perf_counter()
         tri = Delaunay(positions)
 
         # 인접 리스트 (레퍼런스: defaultdict(set) 방식)
@@ -103,10 +112,13 @@ class InteractionMesh:
         self.LA  = self.L[:, :self.n0]  # (n, n0) char0 쪽
         self.LB  = self.L[:, self.n0:]  # (n, n1) char1 쪽
         self.LBT = self.LB.T            # 그래디언트용 (n1, n)
+        self._t_delaunay = time.perf_counter() - _t0
 
         # LS 사전 계산: M_lap = pinv(LB)  [n1, n]
         # 런타임: pos1_opt = M_lap @ (delta_src - LA @ pos0)
+        _t1 = time.perf_counter()
         self.M_lap = np.linalg.pinv(self.LB)  # (n1, n)
+        self._t_pinv = time.perf_counter() - _t1
 
     # ------------------------------------------------------------------
     # 런타임: 닫힌 형식 Laplacian 최적 위치 계산
