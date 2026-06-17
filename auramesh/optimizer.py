@@ -12,6 +12,51 @@ import torch
 # from pymovis.motion.core import Pose, Motion
 # import copy
 
+def _smooth_gaussian(delta_R, sigma=3):
+    """
+    Gaussian low-pass filter를 delta(변화량)에 적용.
+    delta_R: (T, J, 3, 3)  =  tgt_R - src_R
+    반환:    (T, J, 3, 3)  smoothed delta
+    """
+    from scipy.ndimage import gaussian_filter1d
+    return gaussian_filter1d(delta_R.astype(np.float64), sigma=sigma, axis=0)
+
+
+def _smooth_oneeuro(delta_R, fps=30, min_cutoff=5.0, beta=0.5, d_cutoff=1.0):
+    """
+    One-Euro Filter를 delta(변화량)에 적용.
+    delta_R:    (T, J, 3, 3)  =  tgt_R - src_R
+    min_cutoff: 낮을수록 slow 구간 smoothing 강화 (기본 5.0 → 변화 보존 우선)
+    beta:       높을수록 fast 구간 smoothing 감소 (기본 0.5)
+    반환:       (T, J, 3, 3)  smoothed delta
+    """
+    T, J, _, _ = delta_R.shape
+    flat = delta_R.reshape(T, -1).astype(np.float64)  # (T, J*9)
+    dt = 1.0 / fps
+
+    def _alpha(cutoff):
+        tau = 1.0 / (2.0 * np.pi * cutoff)
+        return 1.0 / (1.0 + tau / dt)
+
+    alpha_d = _alpha(d_cutoff)
+    out = np.zeros_like(flat)
+    out[0] = flat[0]
+    x_prev  = flat[0].copy()
+    dx_prev = np.zeros(flat.shape[1])
+
+    for i in range(1, T):
+        dx      = (flat[i] - x_prev) / dt
+        dx_hat  = dx_prev + alpha_d * (dx - dx_prev)
+        cutoff  = min_cutoff + beta * np.abs(dx_hat)
+        alpha   = _alpha(cutoff)
+        x_hat   = x_prev + alpha * (flat[i] - x_prev)
+        out[i]  = x_hat
+        x_prev  = x_hat
+        dx_prev = dx_hat
+
+    return out.reshape(T, J, 3, 3)
+
+
 body_joints = [0, 9, 10, 11, 12, 13]
 left_leg_joints = [1, 2, 3, 4]
 right_leg_joints = [5, 6, 7, 8]
@@ -24,7 +69,8 @@ def optimize_motion(args,
                     src_motion, tgt_motion,
                     tgt_geo, ptn_auramesh,
                     all_col_vids, ptn_all_col_vids,
-                    col_frame, tgt_jids, ptn_jids):
+                    col_frame, tgt_jids, ptn_jids,
+                    ): 
     lamda_0 = 0.1   # goal0: source rotation regularization (줄일수록 goal2 우선)
     lamda_1 = 1.0   # goal1: SO(3) orthogonality
     lamda_2 = 100.0 # goal2: contact preservation (키울수록 접촉 보존 강화)
@@ -215,36 +261,6 @@ def optimize_motion(args,
 
     print(f"\n=== optimize_motion total: {_t_opt_total:.1f}s  ({_t_opt_total/T*1e3:.1f}ms/frame) ===")
 
-    # ── Post-processing: temporal Gaussian smoothing ──
-    # 가장 많이 변한 프레임(f_max)의 displacement를 기준으로 주변 프레임에 Gaussian으로 확산.
-    sigma = 5  # 확산 범위 (프레임 단위)
-    src_local_R_all = np.stack([p.local_R for p in src_motion.poses])   # (T, J, 3, 3)
-    tgt_local_R_all = np.stack([p.local_R for p in tgt_motion.poses])   # (T, J, 3, 3)
-    delta_R = tgt_local_R_all - src_local_R_all                          # (T, J, 3, 3)
-
-    # root rotation (joint 0) 제외 후 displacement 크기 계산
-    delta_no_root = delta_R.copy()
-    delta_no_root[:, 0] = 0.0
-    disp = np.linalg.norm(delta_no_root.reshape(T, -1), axis=1)         # (T,)
-
-    f_max = int(np.argmax(disp))
-    w = np.exp(-0.5 * ((np.arange(T) - f_max) / sigma) ** 2)           # (T,) Gaussian weights
-    # 각 프레임에 f_max displacement를 가중치만큼 혼합
-    smooth_delta = delta_R[f_max][None] * w[:, None, None, None]        # (T, J, 3, 3)
-    smoothed_R = src_local_R_all + smooth_delta
-    # root rotation은 소스 그대로 유지
-    smoothed_R[:, 0] = src_local_R_all[:, 0]
-
-    smoothed_R = normalize_rotation_matrix(
-        smoothed_R.reshape(-1, 3, 3)
-    ).reshape(T, -1, 3, 3)
-
-    for f in range(T):
-        tgt_motion.poses[f].local_R = smoothed_R[f]
-        tgt_motion.poses[f].update()
-
-    print(f"Smoothing done: f_max={f_max}  peak_disp={disp[f_max]:.4f}  sigma={sigma}")
-
     return tgt_motion
 
 
@@ -260,6 +276,45 @@ def normalize_rotation_matrix(matrix):
             normalized[i][:, 2] *= -1
 
     return normalized
+
+
+def smooth_motion(src_motion, tgt_motion,
+                  mode,                  # 'gaussian' | 'oneeuro'
+                  sigma=3,               # gaussian: sigma (frames)
+                  min_cutoff=5.0,        # oneeuro: min cutoff Hz (높을수록 변화 보존)
+                  beta=0.5,              # oneeuro: speed coeff (높을수록 빠른 변화 보존)
+                  fps=30):
+    """
+    src_motion 대비 delta에 temporal smoothing을 적용한 뒤 tgt_motion을 in-place 업데이트.
+
+    delta = tgt_R - src_R 에 필터를 적용하므로:
+      - 변화 없는 프레임은 소스 그대로 유지
+      - 변화 있는 프레임만 부드럽게 전파
+    """
+    T = len(src_motion.poses)
+    src_R = np.stack([p.local_R for p in src_motion.poses])  # (T, J, 3, 3)
+    tgt_R = np.stack([p.local_R for p in tgt_motion.poses])  # (T, J, 3, 3)
+    delta_R = tgt_R - src_R                                   # (T, J, 3, 3)
+
+    if mode == 'gaussian':
+        smooth_delta = _smooth_gaussian(delta_R, sigma=sigma)
+        print(f"smooth_motion: gaussian  sigma={sigma}")
+    elif mode == 'oneeuro':
+        smooth_delta = _smooth_oneeuro(delta_R, fps=fps,
+                                       min_cutoff=min_cutoff, beta=beta)
+        print(f"smooth_motion: oneeuro  min_cutoff={min_cutoff}  beta={beta}")
+    else:
+        raise ValueError(f"Unknown mode: {mode!r}. Use 'gaussian' or 'oneeuro'.")
+
+    smoothed_R = normalize_rotation_matrix(
+        (src_R + smooth_delta).reshape(-1, 3, 3)
+    ).reshape(T, -1, 3, 3)
+
+    for f in range(T):
+        tgt_motion.poses[f].local_R = smoothed_R[f]
+        tgt_motion.poses[f].update()
+
+    return tgt_motion
 
 
 def get_character_geometry(args, names, fbx_models):

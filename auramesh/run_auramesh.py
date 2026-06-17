@@ -18,27 +18,27 @@ from pymovis.vis.app import MotionApp
 from pymovis.vis.render import Render
 from pymovis.motion.core import Motion
 from pymovis.motion.ops.npmotion import *
-
 from datasets.character_functions import get_a_smpl_character as get_a_character
 from datasets.motion_functions import get_interaction_motions_from_list
-from Geometry.compare_geometry import collision_detection
+from Retarget_SMPL.relationship_descriptor import (
+    get_rootP_localR_globalP_from_motion,
+    get_rootP_localR_globalP_from_numpy_motion,
+)
+from Retarget_SMPL.retarget_smpl import scale_character
+from optimizer import get_character_geometry, optimize_motion, smooth_motion
 
+import option_parser
+from option_motion import example_bvh
+from optimizer import _smooth_gaussian, _smooth_oneeuro, normalize_rotation_matrix
+
+
+from Geometry.compare_geometry import collision_detection
 from Geometry.geometry import Geometry
 class AuraMesh(Geometry):
     def __init__(self, args, character, name=None, dist=0.1, scale=1):
         super().__init__(args, character, name)
         self.v_position *= scale
         self.v_position = self.v_position + self.c_normal[self.vid_to_cid] * dist
-
-from Retarget_SMPL.relationship_descriptor import (
-    get_rootP_localR_globalP_from_motion,
-    get_rootP_localR_globalP_from_numpy_motion,
-)
-from Retarget_SMPL.retarget_smpl import scale_character
-from optimizer import get_character_geometry, optimize_motion
-
-import option_parser
-from option_motion import example_bvh
 
 
 class MyApp(MotionApp):
@@ -208,26 +208,77 @@ if __name__ == "__main__":
     tgt_geo_vids1  = [tgt_geoms[1].cid_to_first_vid[geo_cids1[i]]  for i in range(len(geo_cids1))]
     tgt_am_vids0   = [src_auramesh[0].cid_to_first_vid[am_cids0[i]] for i in range(len(am_cids0))]
 
-    # ── Optimize char1 motion ──
-    tgt_motion_1 = optimize_motion(
-        args,
-        motion_1, tgt_motion_1,
-        tgt_geoms[1], tgt_auramesh[0],
-        tgt_geo_vids1, tgt_am_vids0,
-        col_frames1, geo_jids1, am_jids0,
-    )
-
-    # ── Save results ──
-    save_dir = "./auramesh/saved_result/"
-    os.makedirs(save_dir, exist_ok=True)
+    # ════════════════════════════════════════════════════════
+    #  옵션 설정
+    # ════════════════════════════════════════════════════════
+    USE_SAVED   = True          # True: 저장된 .npz 로드 (최적화 skip)
+    motion_name = motion_name0.replace("_S1", "")
+    save_dir = f"./auramesh/saved_result/{motion_name}"
     name0 = os.path.splitext(os.path.basename(motion_name0))[0]
     name1 = os.path.splitext(os.path.basename(motion_name1))[0]
-    for motion, name, idx in [(tgt_motion_0, name0, 0), (tgt_motion_1, name1, 1)]:
-        root_p  = np.stack([pose.root_p  for pose in motion.poses])  # (T, 3)
-        local_R = np.stack([pose.local_R for pose in motion.poses])  # (T, J, 3, 3)
-        path = os.path.join(save_dir, f"am_{name}_s{idx}.npz")
-        np.savez(path, root_p=root_p, local_R=local_R)
-        print(f"Saved: {path}  root_p={root_p.shape}  local_R={local_R.shape}")
+
+    if USE_SAVED:
+        # ── 저장된 최적화 결과 로드 (최적화 skip) ──
+        print(f"Loading saved motion from {save_dir} ...")
+        for motion, name, idx in [(tgt_motion_0, name0, 0), (tgt_motion_1, name1, 1)]:
+            path = os.path.join(save_dir, f"am_{name}_s{idx}.npz")
+            breakpoint()
+            data = np.load(path)
+            for f, pose in enumerate(motion.poses):
+                pose.root_p  = data['root_p'][f]
+                pose.local_R = data['local_R'][f]
+                pose.update()
+            print(f"  Loaded: {path}")
+    else:
+        # ── Optimize char1 motion ──
+        tgt_motion_1 = optimize_motion(
+            args,
+            motion_1, tgt_motion_1,
+            tgt_geoms[1], tgt_auramesh[0],
+            tgt_geo_vids1, tgt_am_vids0,
+            col_frames1, geo_jids1, am_jids0,
+        )
+
+        # 최적화 원본 저장 (smooth 전)
+        os.makedirs(save_dir, exist_ok=True)
+        for motion, name, idx in [(tgt_motion_0, name0, 0), (tgt_motion_1, name1, 1)]:
+            root_p  = np.stack([p.root_p  for p in motion.poses])
+            local_R = np.stack([p.local_R for p in motion.poses])
+            path = os.path.join(save_dir, f"am_{name}_s{idx}.npz")
+            np.savez(path, root_p=root_p, local_R=local_R)
+            print(f"Saved raw: {path}")
+
+    # ════════════════════════════════════════════════════════
+    SMOOTH_MODE = 'oneeuro' # None | 'gaussian' | 'oneeuro'
+
+    # gaussian 파라미터
+    SMOOTH_SIGMA = 3
+    # oneeuro 파라미터 (높을수록 변화 보존, 낮을수록 smoothing)
+    SMOOTH_MIN_CUTOFF = 5.0
+    SMOOTH_BETA       = 0.5
+    SMOOTH_FPS        = 30
+
+    # ── Smoothing (선택) ──
+    if SMOOTH_MODE is not None:
+        tgt_motion_1 = smooth_motion(
+            motion_1, tgt_motion_1,
+            mode=SMOOTH_MODE,
+            sigma=SMOOTH_SIGMA,
+            min_cutoff=SMOOTH_MIN_CUTOFF,
+            beta=SMOOTH_BETA,
+            fps=SMOOTH_FPS,
+        )
+
+    # ── Save smoothed result ──
+    if SMOOTH_MODE is not None:
+        out_dir = os.path.join(save_dir, f"am_{SMOOTH_MODE}")
+        os.makedirs(out_dir, exist_ok=True)
+        for motion, name, idx in [(tgt_motion_0, name0, 0), (tgt_motion_1, name1, 1)]:
+            root_p  = np.stack([p.root_p  for p in motion.poses])
+            local_R = np.stack([p.local_R for p in motion.poses])
+            path = os.path.join(out_dir, f"am_{name}_s{idx}.npz")
+            np.savez(path, root_p=root_p, local_R=local_R)
+            print(f"Saved: {path}")
 
     # ── Render ──
     T = len(motion_0.poses)
@@ -243,5 +294,6 @@ if __name__ == "__main__":
     # aurameshes = src_auramesh + tgt_auramesh
     # am_motions = [motion_0, motion_1, tgt_motion_0, tgt_motion_1]
     # app = MyApp(chars, motions, args, aurameshes=aurameshes, am_motions=am_motions)
-    # app = MyApp(chars, motions, args)
-    # app_manager.run(app)
+    
+    app = MyApp(chars, motions, args)
+    app_manager.run(app)
