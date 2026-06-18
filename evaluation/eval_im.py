@@ -229,25 +229,20 @@ def main():
 
     # ── 평가할 method별 파일 경로 ──
     # npz_path0=None → char0는 소스 모션 그대로 사용
+    # raw_dir = './auramesh/saved_result/'
     methods = {
+        'network': {
+            'npz_path0': os.path.join(save_dir, f'net_{motion_name0}_s0.npz'),
+            'npz_path1': os.path.join(save_dir, f'net_{motion_name1}_s1.npz'),
+        },
         'interaction_mesh': {
-            'npz_path0': os.path.join(save_dir, f'im_{motion_name1}_s0.npz'),
+            'npz_path0': os.path.join(save_dir, f'im_{motion_name0}_s0.npz'),
             'npz_path1': os.path.join(save_dir, f'im_{motion_name1}_s1.npz'),
         },
-        
         'auramesh_wo_smooth': {
             'npz_path0': os.path.join(save_dir, f'am_{motion_name0}_s0.npz'),
             'npz_path1': os.path.join(save_dir, f'am_{motion_name1}_s1.npz'),
         },
-        
-        # 'auramesh_wo_smooth': {
-        #     'npz_path0': os.path.join(save_dir, 'am_wo_smooth', f'am_{motion_name0}_s0.npz'),
-        #     'npz_path1': os.path.join(save_dir, 'am_wo_smooth', f'am_{motion_name1}_s1.npz'),
-        # },
-        # 'auramesh_with_smooth': {
-        #     'npz_path0': os.path.join(save_dir, 'am_with_smooth', f'am_{motion_name0}_s0.npz'),
-        #     'npz_path1': os.path.join(save_dir, 'am_with_smooth', f'am_{motion_name1}_s1.npz'),
-        # }, 
     }
 
     all_results = {}

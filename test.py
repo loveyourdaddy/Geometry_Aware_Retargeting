@@ -1,292 +1,98 @@
+'''
+python test.py
+'''
+
 import sys
-sys.path.append('..')
+sys.path.append('../')
+
+import os
+import numpy as np
 
 from pymovis.vis.appmanager import AppManager
 from pymovis.vis.app import MyApp
 from Network.network import Network
-from datasets.character_functions import *
-from datasets.motion_functions import *
-from datasets.motion_dataset import *
+from datasets.character_functions import load_char
+from datasets.motion_functions import get_interaction_motions_from_list, make_new_motions, set_rot_dim
+from datasets.motion_dataset import Dataset
 import option_parser
 from option_motion import example_bvh
-from Retarget_SMPL.relationship_descriptor import resolve_ground_pene, get_rootP_localR_globalP_from_motion
-from detect_foot_contact import *
+from Retarget_SMPL.relationship_descriptor import resolve_ground_pene
+from etc.etc import render_result
 
 
 def main(args):
     app_manager = AppManager()
     set_rot_dim(args)
-    args.device = "cpu"
-    args.is_train = False
+    args.device         = "cpu"
+    args.is_train       = False
     args.save_norm_info = False
+    args.test_type      = "SMPLx"
+    args.test_char      = "small"
+    # args.SMPLx_mesh_scale = 0.7  # char1 mesh scale (preprocess/SMPLx/scale_mesh0.7_* 사용)
 
-    # motion 
-    if args.motion0 == '':
-        source0_motion_names = list(example_bvh.keys())
-        source1_motion_names = list(example_bvh.values())
-    else:
-        source0_motion_names = [args.motion0]
-        source1_motion_names = [args.motion1]
+    motion_name0 = list(example_bvh.keys())[0]
+    motion_name1 = list(example_bvh.values())[0]
 
-    print("> proj_name: ", args.test_proj)
-    print("> character: ", args.test_type, args.test_char)
-    print("> motion: ", source0_motion_names[0])
+    print(f"> proj:      {args.test_proj}")
+    print(f"> character: {args.test_type} {args.test_char}")
+    print(f"> motion:    {motion_name0}")
 
+    # ── Characters ──
+    src_char0, src_char1, tgt_char0, tgt_char1, \
+        _, _, src_name0, src_name1 = load_char(args)
 
-    """ load data """
-    # load character 
-    source0_character, source1_character, tgt0_character, tgt1_character, \
-        targ0_Tpose, targ1_Tpose, source0_name, source1_name = \
-        load_char(args)
-    
-    if args.test_type=="Mixamo":
-        target0_skeleton_idx, target0_finger_idx, target1_skeleton_idx, target1_finger_idx = \
-            get_skeleton_finger_idx(targ0_Tpose, targ1_Tpose)
-    
-    # load motion
-    source_motion0 = get_interaction_motions_from_list(source0_name, source0_motion_names)[0]
-    source_motion1 = get_interaction_motions_from_list(source1_name, source1_motion_names)[0]
-    
-    # translate input motion
-    source_motion0, source_motion1 = input_motion_translate(args, source_motion0, source_motion1)
-    
-    # dataset
+    # ── Motions ──
+    src_motion0 = get_interaction_motions_from_list(src_name0, [motion_name0])[0]
+    src_motion1 = get_interaction_motions_from_list(src_name1, [motion_name1])[0]
+
+    # ── Dataset ──
     dataset = Dataset(args)
-    dataset.get_char_data(source0_character, source1_character, tgt0_character, tgt1_character)
-    
-    # motion
-    dataset.get_input_motion(source_motion0, source_motion1)
+    dataset.get_char_data(src_char0, src_char1, tgt_char0, tgt_char1)
+    dataset.get_input_motion(src_motion0, src_motion1)
     if args.data_normalized:
         dataset.load_norm_info()
         dataset.normalize()
 
-    # swap role
-    if args.role_change:
-        target1_character, target0_character = tgt0_character, tgt1_character
-        # offset 
-        tmp = dataset.target_offsets1.clone()
-        dataset.target_offsets1 = dataset.target_offsets0.clone()
-        dataset.target_offsets0 = tmp.clone()
-        
-        tmp = dataset.target_aabb_max_min1.clone()
-        dataset.target_aabb_max_min1 = dataset.target_aabb_max_min0.clone()
-        dataset.target_aabb_max_min0 = tmp.clone()
-        
-        if args.test_type=="Mixamo":
-            tmp0, tmp1 = target0_skeleton_idx, target0_finger_idx 
-            target0_skeleton_idx, target0_finger_idx = target1_skeleton_idx, target1_finger_idx
-            target1_skeleton_idx, target1_finger_idx = tmp0, tmp1
-    else: 
-        target0_character, target1_character = tgt0_character, tgt1_character
-    
-    
-    ''' Network '''
+    # ── Network forward ──
     net = Network(args)
-    net.load(args.test_proj + '/' , args.test_epoch, device=args.device)
+    net.load(args.test_proj + '/', args.test_epoch, device=args.device)
     net.eval()
 
-    # forward
-    jit_output_p0, jit_output_R0, \
-    jit_output_p1, jit_output_R1 = \
-        net.forward(dataset)
-    
-    output_motion0, output_motion1 = \
-        make_new_motions(args, jit_output_p0, jit_output_R0, 
-                        jit_output_p1, jit_output_R1, 
-                        target0_character, target1_character, 
-                        source_motion0, source_motion1)
-    
-    # post processing
-    output_motion0, output_motion1 = \
-        resolve_ground_pene(args, output_motion0, output_motion1)
-    
-    # both two characters retargeted 
-    swap_data = False
-    if swap_data:
-        # ptn(0) fat, dfm(1) small
-        # args.test_char = "fat" # fat small
-        target0_name = "Amy"
-        # _, _, _, tgt0_character, \
-        #     targ0_Tpose, targ1_Tpose, source0_name, source1_name = \
-        #     load_char(args)
-            
-        # target0
-        template_Tpose = bvh.load(
-            "../Resource/Tpose_template.bvh", v_forward=[0, 0, 1], v_up=[0, 1, 0]
-        )
-        tgt0_character_again, _, _ = \
-            get_a_character_wo_geo(args, target0_name, template_Tpose)
-        
-        # if args.test_type=="Mixamo":
-        #     target0_skeleton_idx, target0_finger_idx, target1_skeleton_idx, target1_finger_idx = \
-        #         get_skeleton_finger_idx(targ0_Tpose, targ1_Tpose)
-        
-        
-        # dataset
-        # dataset = Dataset(args)
-        # dataset.get_char_data(source0_character, source1_character, tgt0_character_again, tgt1_character) # target0_character, target1_character,
-        
-        # # motion
-        # dataset.get_input_motion(output_motion0, output_motion1) # source_motion0, source_motion1
-        # if args.data_normalized:
-        #     dataset.load_norm_info()
-        #     dataset.normalize() 
-        
-        # swap
-        import copy 
-        target0_character_swap = tgt0_character_again # copy.deepcopy(tgt0_character_again)
-        target1_character_swap = copy.deepcopy(tgt1_character)
-        
-        # forward
-        jit_output_p0, jit_output_R0, \
-        jit_output_p1, jit_output_R1 = \
-            net.forward(dataset)
-        
-        jit_output_R0 = torch.tensor(np.load('./tmp/local_R0.npy'))
-        jit_output_R1 = torch.tensor(np.load('./tmp/local_R1.npy'))
-        jit_output_p0 = torch.tensor(np.load('./tmp/root_p0.npy'))
-        jit_output_p1 = torch.tensor(np.load('./tmp/root_p1.npy'))
+    out_p0, out_R0, out_p1, out_R1 = net.forward(dataset)
 
-        output_motion0_swap, output_motion1_swap = \
-            make_new_motions(args, 
-                             jit_output_p0, jit_output_R0, 
-                             jit_output_p1, jit_output_R1, 
-                             target0_character_swap, target1_character_swap, 
-                             source_motion0, source_motion1)
-        
-        # post processing
-        # output_motion0, output_motion1 = \
-        #     resolve_ground_pene(args, output_motion0, output_motion1)
-        
-        output_motion0_swap, output_motion1_swap = \
-            resolve_ground_pene(args, output_motion0_swap, output_motion1_swap)
-    
-    # test with aura mesh
-    if False:
-        motion_name0 = source0_motion_names[0]
-        jit_output_R0 = np.load('auramesh/{}_local_R0.npy'.format(motion_name0))
-        jit_output_R1 = np.load('auramesh/{}_local_R1.npy'.format(motion_name0))
-        
-        jit_output_R0 = torch.tensor(jit_output_R0)
-        jit_output_R1 = torch.tensor(jit_output_R1)
-        
-        source_output_p0 = []
-        source_output_p1 = []
-        source_output_R0 = []
-        source_output_R1 = []
-        for pose in source_motion0.poses:
-            source_output_p0.append(pose.root_p)
-            source_output_R0.append(pose.local_R)
-        for pose in source_motion1.poses:
-            source_output_p1.append(pose.root_p)
-            source_output_R1.append(pose.local_R)
-        source_output_p0 = torch.tensor(np.array(source_output_p0))
-        source_output_p1 = torch.tensor(np.array(source_output_p1))
-        source_output_p1[:, 1] *= source_output_p1[:, 1] * 0.7
-        source_output_R0 = torch.tensor(np.array(source_output_R0))
-        source_output_R1 = torch.tensor(np.array(source_output_R1))
-        
-        jit_output_R0[:, 0] = source_output_R0[:, 0]
-        jit_output_R1[:, 0] = source_output_R1[:, 0]
-        output_motion0, output_motion1 = \
-            make_new_motions(args, 
-                            source_output_p0, jit_output_R0, 
-                            source_output_p1, jit_output_R1, 
-                            target0_character, target1_character, 
-                            source_motion0, source_motion1)
+    out_motion0, out_motion1 = make_new_motions(
+        args, out_p0, out_R0, out_p1, out_R1,
+        tgt_char0, tgt_char1, src_motion0, src_motion1,
+    )
+    # out_motion0, out_motion1 = resolve_ground_pene(args, out_motion0, out_motion1)
 
-    # make motion 
-    if args.test_type=="Mixamo":
-        # finger가 없는데 필요한가? 
-        # finger motion from source 
-        jit_output_p0, jit_output_R0, _ = get_rootP_localR_globalP_from_motion(args, output_motion0.poses)
-        jit_output_p1, jit_output_R1, _ = get_rootP_localR_globalP_from_motion(args, output_motion1.poses)
-        output_motion0 = make_new_motion(jit_output_p0, jit_output_R0, target0_character, source_motion0)
-        output_motion1 = make_new_motion(jit_output_p1, jit_output_R1, target1_character, source_motion1)
+    # ── Save (interaction_mesh와 동일한 형식) ──
+    # ./auramesh/saved_result/net_{motion_name}_s{idx}.npz
     
-    # check foot contact preserving
-    if False:
-        src_foot_contact0 = detect_foot_contact(args, source_motion0)
-        src_foot_contact1 = detect_foot_contact(args, source_motion1)
-        tgt_foot_contact0 = detect_foot_contact(args, output_motion0)
-        tgt_foot_contact1 = detect_foot_contact(args, output_motion1)
-        
-        foot_joints = args.toe_joints + args.heel_joints
-        src_foot_contact0 = src_foot_contact0[:, foot_joints]
-        src_foot_contact1 = src_foot_contact1[:, foot_joints]
-        tgt_foot_contact0 = tgt_foot_contact0[:, foot_joints]
-        tgt_foot_contact1 = tgt_foot_contact1[:, foot_joints]
-        
-        def get_contact_preserving(src_foot_contact, tgt_foot_contact):
-            num_src_contact = np.sum(src_foot_contact)
-            contact_preserving = np.logical_and(src_foot_contact, tgt_foot_contact)
-            num_tgt_contact = np.sum(contact_preserving)
-            return num_tgt_contact / num_src_contact
-        ratio_contact_preseving0 = get_contact_preserving(src_foot_contact0, tgt_foot_contact0)
-        ratio_contact_preseving1 = get_contact_preserving(src_foot_contact1, tgt_foot_contact1)
-        print("ratio_contact_preseving0: ", ratio_contact_preseving0)
-        print("ratio_contact_preseving1: ", ratio_contact_preseving1)
-    
+    SAVE =True
+    if SAVE:
+        motion_name = motion_name0.replace("_S1", "")
+        save_dir = f"./auramesh/saved_result/{motion_name}"
+        os.makedirs(save_dir, exist_ok=True)
+        name0 = os.path.splitext(os.path.basename(motion_name0))[0]
+        name1 = os.path.splitext(os.path.basename(motion_name1))[0]
 
-    """ option """
-    # save
-    if args.save:
-        save_path = './result_saved/' + args.test_proj + '/'
-        os.makedirs(save_path, exist_ok=True)
-        
-        target_name0 = target0_character.meshes[0].mesh_gl.name
-        target_name1 = target1_character.meshes[0].mesh_gl.name
-        name = source0_motion_names[0]+'_'+target_name0+'_'+target_name1+'/'
-        os.makedirs(save_path+name, exist_ok=True)
-        
-        np.save(save_path+name+'jit_output_p0', jit_output_p0.detach().numpy())
-        np.save(save_path+name+'jit_output_p1', jit_output_p1.detach().numpy())
-        np.save(save_path+name+'jit_output_R0', jit_output_R0.detach().numpy())
-        np.save(save_path+name+'jit_output_R1', jit_output_R1.detach().numpy())
-    # render
-    else:
-        from etc.etc import render_result, render_compare
-        swap_data = False
-        if swap_data==False:
-            characters, motions = \
-                render_result(args, 
-                            source0_character, source1_character, target0_character, target1_character, 
-                            source_motion0, source_motion1, output_motion0, output_motion1) 
-            # characters, motions = \
-            #     render_result(args, 
-            #                 source0_character, source1_character, target0_character_swap, target1_character_swap, 
-            #                 source_motion0, source_motion1, output_motion0_swap, output_motion1_swap) 
-        else:
-            characters, motions = \
-                render_compare(args, 
-                            source0_character, source1_character, target0_character, target1_character, target0_character_swap, target1_character_swap, 
-                            source_motion0, source_motion1, output_motion0, output_motion1, output_motion0_swap, output_motion1_swap) 
-            import pdb; pdb.set_trace()
-            
-        app = MyApp(characters, motions, args, net)
-        app_manager.run(app)
+        for motion, name, idx in [(out_motion0, name0, 0), (out_motion1, name1, 1)]:
+            root_p  = np.stack([pose.root_p  for pose in motion.poses])  # (T, 3)
+            local_R = np.stack([pose.local_R for pose in motion.poses])  # (T, J, 3, 3)
+            path = os.path.join(save_dir, f"net_{name}_s{idx}.npz")
+            np.savez(path, root_p=root_p, local_R=local_R)
+            print(f"Saved: {path}  root_p={root_p.shape}  local_R={local_R.shape}")
 
-def input_motion_translate(args, motion0, motion1):
-    translate0 = np.array([0.0, 0, 0.0])
-    translate1 = np.array([0.0, 0, 0.0])
-    
-    if motion0.name == "move_03_03_male_30fps":
-        translate1 = np.array([+0.1, 0, -0.1])
-    # elif motion0.name == "one_leg_back_stretch_S1":
-    #     translate1 = np.array([0, 0, +0.1])
-    else:
-        return motion0, motion1
-    print("input motion1 translated in {}".format(translate1))
-    
-    # update motion
-    for pose in motion0.poses:
-        pose.root_p += translate0
-        pose.update()
-    for pose in motion1.poses:
-        pose.root_p += translate1
-        pose.update()
-        
-    return motion0, motion1
+    # ── Render ──
+    characters, motions = render_result(
+        args,
+        src_char0, src_char1, tgt_char0, tgt_char1,
+        src_motion0, src_motion1, out_motion0, out_motion1,
+    )
+    app = MyApp(characters, motions, args, net)
+    app_manager.run(app)
+
 
 if __name__ == "__main__":
     args = option_parser.get_args()

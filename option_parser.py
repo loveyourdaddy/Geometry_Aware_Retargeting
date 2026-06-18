@@ -17,7 +17,7 @@ def get_parser():
     
     # character
     parser.add_argument('--test_type', type=str, default="Mixamo") # SMPLx Mixamo
-    parser.add_argument('--test_char', type=str, default="fat") # small
+    parser.add_argument('--test_char', type=str, default="small") # small
     parser.add_argument('--role_change', type=str_to_bool, default=False)
     parser.add_argument('--subsampled', type=str_to_bool, default=False) # True
     
