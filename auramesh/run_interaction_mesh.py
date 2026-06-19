@@ -1,8 +1,8 @@
 """
+python auramesh/run_interaction_mesh.py
+
 Interaction Mesh based motion retargeting.
 Ho et al., "Spatial Relationship Preserving Character Motion Adaptation", ACM TOG 2010.
-
-python auramesh/run_interaction_mesh.py
 
 레퍼런스: Physics-based-retargeting/interaction_mesh.py
 주요 변경:
@@ -176,7 +176,7 @@ def retarget_with_interaction_mesh(args, src_motion_0, tgt_motion_1, im,
           f"{(t_end - t_start) / T * 1000:.1f}ms/frame)")
 
     # 디버그용: 최적화된 관절 위치 저장 (DebugApp이 렌더링에 사용)
-    args.debug_points = all_pos1_final  # (T, 22, 3)
+    # args.debug_points = all_pos1_final  # (T, 22, 3)
 
     return tgt_motion_1
 
@@ -190,87 +190,78 @@ if __name__ == "__main__":
     args.device = 'cpu'
     scale = 0.7
 
-    # ── 소스 캐릭터 & 모션 ──
-    src_names = ["SMPLx", "SMPLx"]
-    src_chars = []
-    for name in src_names:
-        char, _, _ = get_a_character(args, name)
-        src_chars.append(char)
+    save_dir = "./auramesh/saved_result/"
+    os.makedirs(save_dir, exist_ok=True)
 
-    motion_name0 = list(example_bvh.keys())[0]
-    motion_name1 = list(example_bvh.values())[0]
-    motion_0 = get_interaction_motions_from_list(src_names[0], [motion_name0])[0]
-    motion_1 = get_interaction_motions_from_list(src_names[0], [motion_name1])[0]
-    # motion_0.poses = motion_0.poses[:10]
-    # motion_1.poses = motion_1.poses[:10]
+    # ── 캐릭터는 모든 모션 공통: 한 번만 로드 ──
+    src_char0, _, _ = get_a_character(args, 'SMPLx')
+    src_char1, _, _ = get_a_character(args, 'SMPLx')
+    tgt_char0, _, _ = get_a_character(args, 'SMPLx')
+    tgt_char1, _, _ = get_a_character(args, 'SMPLx', mesh_scale=scale)
+    src_chars = [src_char0, src_char1]
+    tgt_chars = [tgt_char0, tgt_char1]
 
-    src_chars[0].set_source_skeleton(motion_0.skeleton, "")
-    src_chars[1].set_source_skeleton(motion_1.skeleton, "")
+    for motion_name0, motion_name1 in example_bvh.items():
+        print(f"\n{'='*60}")
+        print(f"Retargeting: {motion_name0} and {motion_name1}")
+        print(f"{'='*60}")
 
-    print(f"Source motions: {motion_name0} ({len(motion_0.poses)}f), "
-          f"{motion_name1} ({len(motion_1.poses)}f)")
+        # ── 소스 모션 로드 ──
+        motion_0 = get_interaction_motions_from_list('SMPLx', [motion_name0])[0]
+        motion_1 = get_interaction_motions_from_list('SMPLx', [motion_name1])[0]
 
-    # ── InteractionMesh 빌드 (소스 기준) ──
-    print("\nBuilding Interaction Mesh from source motions...")
-    _, _, src_gp0 = get_rootP_localR_globalP_from_motion(args, motion_0.poses)
-    _, _, src_gp1 = get_rootP_localR_globalP_from_motion(args, motion_1.poses)
-    im = InteractionMesh(src_gp0.numpy(), src_gp1.numpy())
+        src_char0.set_source_skeleton(motion_0.skeleton, "")
+        src_char1.set_source_skeleton(motion_1.skeleton, "")
 
-    # ── 타겟 캐릭터 & 모션 ──
-    tgt_names = ["SMPLx", "SMPLx"]
-    tgt_chars = []
-    for i, name in enumerate(tgt_names):
-        if i == 0:
-            char, _, _ = get_a_character(args, name)
-        else:
-            char, _, _ = get_a_character(args, name, mesh_scale=scale)
-        tgt_chars.append(char)
+        # ── InteractionMesh 빌드 (소스 기준) ──
+        print("Building Interaction Mesh...")
+        _, _, src_gp0 = get_rootP_localR_globalP_from_motion(args, motion_0.poses)
+        _, _, src_gp1 = get_rootP_localR_globalP_from_motion(args, motion_1.poses)
+        im = InteractionMesh(src_gp0.numpy(), src_gp1.numpy())
 
-    tgt_motion_0 = copy.deepcopy(motion_0)
-    tgt_motion_1 = copy.deepcopy(motion_1)
+        # ── 타겟 모션 초기화 ──
+        tgt_motion_0 = copy.deepcopy(motion_0)
+        tgt_motion_1 = copy.deepcopy(motion_1)
 
-    # char1 초기화: 소스 회전 유지 + root Y 스케일
-    for pose in tgt_motion_1.poses:
-        pose.root_p[1] *= scale
-        pose.update()
+        for pose in tgt_motion_1.poses:
+            pose.root_p[1] *= scale
+            pose.update()
 
-    tgt_chars[0].set_source_skeleton(tgt_motion_0.skeleton, "")
-    tgt_chars[1].set_source_skeleton(tgt_motion_1.skeleton, "")
+        # set_source_skeleton이 skeleton을 교체하므로 루프마다 scale_character 적용 가능
+        tgt_char0.set_source_skeleton(tgt_motion_0.skeleton, "")
+        tgt_char1.set_source_skeleton(tgt_motion_1.skeleton, "")
+        scale_character(args, tgt_char1, scale, scale, scale)
+        for pose in tgt_motion_1.poses:
+            pose.update()
 
-    # char1 skeleton 스케일 적용
-    scale_character(args, tgt_chars[1], scale, scale, scale)
-    for pose in tgt_motion_1.poses:
-        pose.update()
+        # ── Retarget ──
+        tgt_motion_1 = retarget_with_interaction_mesh(
+            args, motion_0, tgt_motion_1, im, alpha=0.8
+        )
 
-    # ── Retarget ──
-    print("\nRetargeting with Interaction Mesh...")
-    tgt_motion_1 = retarget_with_interaction_mesh(
-        args, motion_0, tgt_motion_1, im, alpha=0.8
-    )
+        # ── Save ──
+        save = False
+        if save:
+            name0 = os.path.splitext(os.path.basename(motion_name0))[0]
+            name1 = os.path.splitext(os.path.basename(motion_name1))[0]
+            for motion, name, idx in [(tgt_motion_0, name0, 0), (tgt_motion_1, name1, 1)]:
+                root_p  = np.stack([pose.root_p  for pose in motion.poses])
+                local_R = np.stack([pose.local_R for pose in motion.poses])
+                path = os.path.join(save_dir, f"im_{name}_s{idx}.npz")
+                np.savez(path, root_p=root_p, local_R=local_R)
+                print(f"Saved: {path}  root_p={root_p.shape}  local_R={local_R.shape}")
 
-    # ── Save results ──
-    save = False
-    if save:
-        save_dir = "./auramesh/saved_result/"
-        os.makedirs(save_dir, exist_ok=True)
-        name0 = os.path.splitext(os.path.basename(motion_name0))[0]
-        name1 = os.path.splitext(os.path.basename(motion_name1))[0]
-        for motion, name, idx in [(tgt_motion_0, name0, 0), (tgt_motion_1, name1, 1)]:
-            root_p  = np.stack([pose.root_p  for pose in motion.poses])  # (T, 3)
-            local_R = np.stack([pose.local_R for pose in motion.poses])  # (T, J, 3, 3)
-            path = os.path.join(save_dir, f"im_{name}_s{idx}.npz")
-            np.savez(path, root_p=root_p, local_R=local_R)
-            print(f"Saved: {path}  root_p={root_p.shape}  local_R={local_R.shape}")
+        # ── 렌더 ──
+        render = True
+        if render:
+            for f in range(len(motion_0.poses)):
+                motion_0.poses[f].translate_root_p([args.source_pos, 0, 0])
+                motion_1.poses[f].translate_root_p([args.source_pos, 0, 0])
+                tgt_motion_0.poses[f].translate_root_p([args.joint_pos, 0, 0])
+                tgt_motion_1.poses[f].translate_root_p([args.joint_pos, 0, 0])
 
-    # ── 렌더 ──
-    for f in range(len(motion_0.poses)):
-        motion_0.poses[f].translate_root_p([args.source_pos, 0, 0])
-        motion_1.poses[f].translate_root_p([args.source_pos, 0, 0])
-        tgt_motion_0.poses[f].translate_root_p([args.joint_pos, 0, 0])
-        tgt_motion_1.poses[f].translate_root_p([args.joint_pos, 0, 0])
+            chars   = src_chars + tgt_chars
+            motions = [motion_0, motion_1, tgt_motion_0, tgt_motion_1]
 
-    chars   = src_chars + tgt_chars
-    motions = [motion_0, motion_1, tgt_motion_0, tgt_motion_1]
-
-    app = DebugApp(chars, motions, args)
-    app_manager.run(app)
+            app = DebugApp(chars, motions, args)
+            app_manager.run(app)

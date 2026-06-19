@@ -206,80 +206,114 @@ def evaluate(args, method_name, npz_path0, npz_path1,
     return results
 
 
+def _print_table(title, results_dict, metric_keys):
+    """results_dict: {method_name: {metric: value}} 형태의 테이블 출력."""
+    W = 22
+    header = ['method'] + metric_keys
+    sep = '=' * (W * len(header))
+    print(f'\n{sep}')
+    print(f'  {title}')
+    print('  '.join(f'{h:<{W}}' for h in header))
+    print('-' * (W * len(header)))
+    for method, res in results_dict.items():
+        row = [f'{method:<{W}}'] + [f'{res[k]:<{W}}' for k in metric_keys]
+        print('  '.join(row))
+    print(sep)
+
+
 def main():
     # AppManager가 GLFW window + OpenGL context를 초기화함.
-    # get_a_character가 fbx.model()에서 glGenVertexArrays를 호출하므로 반드시 먼저 실행해야 함.
     import glfw
     app_manager = AppManager()
-    glfw.hide_window(app_manager.window)  # 평가 중 창이 화면을 가리지 않도록 숨김
+    glfw.hide_window(app_manager.window)
 
     args = option_parser.get_args()
-    args.device      = 'cpu'
-    args.is_train    = False
+    args.device         = 'cpu'
+    args.is_train       = False
     args.save_norm_info = False
-    args.test_type   = 'SMPLx'
-    args.test_char   = 'small'
-    scale = 0.7
+    args.test_type      = 'SMPLx'
+    args.test_char      = 'small'
+    scale    = 0.7
+    save_dir = './auramesh/saved_result/'
 
-    motion_name0 = list(example_bvh.keys())[0]   # "greeting002_S1"
-    motion_name1 = list(example_bvh.values())[0]  # "greeting002_S2"
-
-    motion_name = motion_name0.replace("_S1", "")
-    save_dir = f'./auramesh/saved_result/{motion_name}/'
-
-    # ── 평가할 method별 파일 경로 ──
-    # npz_path0=None → char0는 소스 모션 그대로 사용
-    # raw_dir = './auramesh/saved_result/'
-    methods = {
-        'network': {
-            'npz_path0': os.path.join(save_dir, f'net_{motion_name0}_s0.npz'),
-            'npz_path1': os.path.join(save_dir, f'net_{motion_name1}_s1.npz'),
-        },
-        'interaction_mesh': {
-            'npz_path0': os.path.join(save_dir, f'im_{motion_name0}_s0.npz'),
-            'npz_path1': os.path.join(save_dir, f'im_{motion_name1}_s1.npz'),
-        },
-        'auramesh_wo_smooth': {
-            'npz_path0': os.path.join(save_dir, f'am_{motion_name0}_s0.npz'),
-            'npz_path1': os.path.join(save_dir, f'am_{motion_name1}_s1.npz'),
-        },
+    # method 이름 → npz prefix 매핑
+    method_prefixes = {
+        # 'network':          'net',
+        'interaction_mesh': 'im',
+        # 'auramesh':       'am',
     }
 
-    all_results = {}
-    for method_name, paths in methods.items():
-        npz1 = paths['npz_path1']
-        if not os.path.isfile(npz1):
-            print(f"[SKIP] {method_name}: {npz1} not found")
+    # {method: [(motion_name0, result_dict), ...]}
+    accumulated = {m: [] for m in method_prefixes}
+
+    for motion_name0, motion_name1 in example_bvh.items():
+        print(f"\n{'─'*60}")
+        print(f"Motion: {motion_name0}  /  {motion_name1}")
+
+        for method_name, prefix in method_prefixes.items():
+            save_dir_for_method = os.path.join(save_dir, method_name)
+            os.makedirs(save_dir_for_method, exist_ok=True)
+            
+            npz_path0 = os.path.join(save_dir_for_method, f'{prefix}_{motion_name0}_s0.npz')
+            npz_path1 = os.path.join(save_dir_for_method, f'{prefix}_{motion_name1}_s1.npz')
+
+            if not os.path.isfile(npz_path1):
+                print(f"  [SKIP] {method_name}: {npz_path1} not found")
+                continue
+
+            results = evaluate(
+                args, method_name,
+                npz_path0=npz_path0,
+                npz_path1=npz_path1,
+                motion_name0=motion_name0,
+                motion_name1=motion_name1,
+                scale=scale,
+            )
+            accumulated[method_name].append((motion_name0, results))
+
+    # ── 평균 계산 ──
+    metric_keys = next(
+        (list(res.keys()) for runs in accumulated.values() for _, res in runs), []
+    )
+
+    mean_results = {}
+    for method, runs in accumulated.items():
+        if not runs:
             continue
-        results = evaluate(
-            args, method_name,
-            npz_path0=paths['npz_path0'],
-            npz_path1=npz1,
-            motion_name0=motion_name0,
-            motion_name1=motion_name1,
-            scale=scale,
-        )
-        all_results[method_name] = results
+        mean_results[method] = {
+            k: round(sum(res[k] for _, res in runs) / len(runs), 4)
+            for k in metric_keys
+        }
 
-    # ── 요약 출력 ──
-    if all_results:
-        header = ['method'] + list(next(iter(all_results.values())).keys())
-        print('\n' + '=' * 80)
-        print('  '.join(f'{h:<26}' for h in header))
-        print('-' * 80)
-        for method, res in all_results.items():
-            row = [f'{method:<26}'] + [f'{v:<26}' for v in res.values()]
-            print('  '.join(row))
-        print('=' * 80)
+    if not mean_results:
+        print("평가된 결과가 없습니다.")
+        return
 
-        # 파일 저장
-        os.makedirs('./result_saved', exist_ok=True)
-        out_path = f'./result_saved/eval_im_{motion_name0}.txt'
-        with open(out_path, 'w') as f:
-            f.write('  '.join(header) + '\n')
-            for method, res in all_results.items():
-                f.write(method + '  ' + '  '.join(map(str, res.values())) + '\n')
-        print(f"\nSaved: {out_path}")
+    _print_table(
+        f'MEAN RESULTS  ({sum(len(r) for r in accumulated.values())} evaluations)',
+        mean_results, metric_keys,
+    )
+
+    # ── 파일 저장 ──
+    path = './auramesh/saved_result/result'
+    os.makedirs(path, exist_ok=True)
+    out_path = f'{path}/eval_im_mean.txt'
+    with open(out_path, 'w') as f:
+        header = '\t'.join(['method', 'motion'] + metric_keys)
+        f.write(header + '\n')
+
+        for method, runs in accumulated.items():
+            # 모션별 결과
+            for motion_name, res in runs:
+                row = '\t'.join([method, motion_name] + [str(res[k]) for k in metric_keys])
+                f.write(row + '\n')
+            # 평균
+            if method in mean_results:
+                row = '\t'.join([method, 'MEAN'] + [str(mean_results[method][k]) for k in metric_keys])
+                f.write(row + '\n')
+            f.write('\n')
+
+    print(f"\nSaved: {out_path}")
 
 
 if __name__ == '__main__':

@@ -213,7 +213,7 @@ if __name__ == "__main__":
     # ════════════════════════════════════════════════════════
     USE_SAVED   = True          # True: 저장된 .npz 로드 (최적화 skip)
     motion_name = motion_name0.replace("_S1", "")
-    save_dir = f"./auramesh/saved_result/{motion_name}"
+    save_dir = f"./auramesh/saved_result/auramesh/{motion_name}"
     name0 = os.path.splitext(os.path.basename(motion_name0))[0]
     name1 = os.path.splitext(os.path.basename(motion_name1))[0]
 
@@ -222,7 +222,6 @@ if __name__ == "__main__":
         print(f"Loading saved motion from {save_dir} ...")
         for motion, name, idx in [(tgt_motion_0, name0, 0), (tgt_motion_1, name1, 1)]:
             path = os.path.join(save_dir, f"am_{name}_s{idx}.npz")
-            breakpoint()
             data = np.load(path)
             for f, pose in enumerate(motion.poses):
                 pose.root_p  = data['root_p'][f]
@@ -249,7 +248,7 @@ if __name__ == "__main__":
             print(f"Saved raw: {path}")
 
     # ════════════════════════════════════════════════════════
-    SMOOTH_MODE = 'oneeuro' # None | 'gaussian' | 'oneeuro'
+    SMOOTH_MODE = None # None | 'gaussian' | 'oneeuro'
 
     # gaussian 파라미터
     SMOOTH_SIGMA = 3
