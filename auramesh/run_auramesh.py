@@ -229,13 +229,26 @@ if __name__ == "__main__":
                 pose.update()
             print(f"  Loaded: {path}")
     else:
-        # ── Optimize char1 motion ──
+        # ── Optimize char1: tgt_geoms[1] ↔ tgt_auramesh[0] ──
         tgt_motion_1 = optimize_motion(
             args,
             motion_1, tgt_motion_1,
             tgt_geoms[1], tgt_auramesh[0],
             tgt_geo_vids1, tgt_am_vids0,
             col_frames1, geo_jids1, am_jids0,
+        )
+
+        # char1 최적화 결과로 auramesh[1] 업데이트 → char0 최적화 기준점으로 사용
+        root_p1, local_R1, _ = get_rootP_localR_globalP_from_numpy_motion(args, tgt_motion_1.poses)
+        tgt_auramesh[1].set_pose_by_source_batch_frame(local_R1.unsqueeze(0), root_p1.unsqueeze(0))
+
+        # ── Optimize char0: tgt_geoms[0] ↔ tgt_auramesh[1] ──
+        tgt_motion_0 = optimize_motion(
+            args,
+            motion_0, tgt_motion_0,
+            tgt_geoms[0], tgt_auramesh[1],
+            tgt_geo_vids0, tgt_am_vids1,
+            col_frames0, geo_jids0, am_jids1,
         )
 
         # 최적화 원본 저장 (smooth 전)
@@ -248,10 +261,10 @@ if __name__ == "__main__":
             print(f"Saved raw: {path}")
 
     # ════════════════════════════════════════════════════════
-    SMOOTH_MODE = None # None | 'gaussian' | 'oneeuro'
+    SMOOTH_MODE = 'gaussian' # None | 'gaussian' | 'oneeuro'
 
     # gaussian 파라미터
-    SMOOTH_SIGMA = 3
+    SMOOTH_SIGMA = 2
     # oneeuro 파라미터 (높을수록 변화 보존, 낮을수록 smoothing)
     SMOOTH_MIN_CUTOFF = 5.0
     SMOOTH_BETA       = 0.5
@@ -259,6 +272,14 @@ if __name__ == "__main__":
 
     # ── Smoothing (선택) ──
     if SMOOTH_MODE is not None:
+        tgt_motion_0 = smooth_motion(
+            motion_0, tgt_motion_0,
+            mode=SMOOTH_MODE,
+            sigma=SMOOTH_SIGMA,
+            min_cutoff=SMOOTH_MIN_CUTOFF,
+            beta=SMOOTH_BETA,
+            fps=SMOOTH_FPS,
+        )
         tgt_motion_1 = smooth_motion(
             motion_1, tgt_motion_1,
             mode=SMOOTH_MODE,
