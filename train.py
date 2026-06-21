@@ -12,7 +12,7 @@ sys.path.append('..')
 
 import random
 import torch.backends.cudnn as cudnn
-import wandb
+# import wandb
 import option_parser
 from datasets.motion_dataset import *
 from datasets.motion_functions import *
@@ -36,11 +36,11 @@ def main(args):
     args.is_train = True
     args.begin_epoch = 0
     args.end_epoch = 100000  # 100,000
-    wandb.init(
-        project="GeometryAwareRetargeting",
-        name=args.proj_name,
-        mode="online"
-    )
+    # wandb.init(
+    #     project="GeometryAwareRetargeting",
+    #     name=args.proj_name,
+    #     mode="online"
+    # )
 
     # set train character
     train_mesh_char_list = args.target_characters

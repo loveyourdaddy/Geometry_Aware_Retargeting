@@ -102,7 +102,7 @@ class Network():
             out_root_ps1, out_R1
 
     def train_(self, dataset):
-        import wandb
+        # import wandb
         from datasets.motion_functions import get_displacement_map, get_distance_map
         print("train start")
 
@@ -460,29 +460,29 @@ class Network():
             valid_loss1 = self.loss_func(output_motion1, valid_gt1[:1])
             
             
-            """ log """
-            wandb.log({
-                "epoch": epoch, 
-                "rec_loss0": sum_rec_loss0, 
-                "rec_loss1": sum_rec_loss1, 
-                "root_loss0": sum_root_loss0, 
-                "root_loss1": sum_root_loss1, 
-                "fk_loss0": sum_fk_loss0, 
-                "fk_loss1": sum_fk_loss1, 
-                "foot_contact_loss0": sum_foot_contact_loss0,
-                "foot_contact_loss1": sum_foot_contact_loss1,
+            # """ log """
+            # wandb.log({
+            #     "epoch": epoch, 
+            #     "rec_loss0": sum_rec_loss0, 
+            #     "rec_loss1": sum_rec_loss1, 
+            #     "root_loss0": sum_root_loss0, 
+            #     "root_loss1": sum_root_loss1, 
+            #     "fk_loss0": sum_fk_loss0, 
+            #     "fk_loss1": sum_fk_loss1, 
+            #     "foot_contact_loss0": sum_foot_contact_loss0,
+            #     "foot_contact_loss1": sum_foot_contact_loss1,
                 
-                "disp_loss0": sum_anchor_disp_loss0,
-                "disp_loss1": sum_anchor_disp_loss1,
-                "valid_loss0": valid_loss0,
-                "valid_loss1": valid_loss1,
-                }
-            )
+            #     "disp_loss0": sum_anchor_disp_loss0,
+            #     "disp_loss1": sum_anchor_disp_loss1,
+            #     "valid_loss0": valid_loss0,
+            #     "valid_loss1": valid_loss1,
+            #     }
+            # )
             # end epoch
             if epoch != self.args.begin_epoch and (epoch == self.args.end_epoch - 1 or epoch % self.args.save_iter_epoch == 0):
                 self.save(self.args.path, epoch)
                 print("save model at epoch {}".format(epoch))
-        wandb.finish()
+        # wandb.finish()
 
     def get_anchor_position(self, cid, offset, gt_R, gt_root_p, 
                             anchor_vpos_b, anchor_vids_b, batch, frame):
