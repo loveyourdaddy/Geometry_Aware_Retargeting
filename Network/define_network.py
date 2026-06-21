@@ -141,25 +141,32 @@ class SpatioTemporalTransformer(nn.Module):
         self.root_net_a = nn.Linear(root_dim, input_dim)
         self.root_net_b = nn.Linear(root_dim, input_dim)
         
-        # Transformer 
+        # Transformer / MLP encoder 선택
         self.spat_pos_encoder = PositionalEncoding(dropout, input_dim, max_len=spat_num_token)
-        if args.temporal_attn==False:
-            if args.weight_sharing==False:
-                # base 
-                self.spat_encoder = TwinTransformer(args, input_dim, rot_token_channels, dropout)
+        network_type = getattr(args, 'network_type', 'full')
+        self.network_type = network_type
+
+        if network_type == 'mlp':
+            # ablation: attention 없음
+            self.spat_encoder = TwinMLPEncoder(input_dim, rot_token_channels, dropout)
+        elif network_type == 'no_cross_attn':
+            # ablation: self-attention only (cross-attention 제거)
+            self.spat_encoder = TwinTransformer(args, input_dim, rot_token_channels, dropout)
+        else:
+            # full model: respect temporal_attn / weight_sharing flags
+            if args.temporal_attn == False:
+                if args.weight_sharing == False:
+                    self.spat_encoder = TwinTransformer(args, input_dim, rot_token_channels, dropout)
+                else:
+                    self.spat_encoder = SharingTransformer(args, input_dim, rot_token_channels, dropout)
+            elif args.temporal_attn:
+                self.temp_pos_encoder = PositionalEncoding(dropout, input_dim, max_len=max_temp_num_token)
+                if args.weight_sharing == False:
+                    self.spat_encoder = TwinTransformer(args, input_dim, rot_token_channels, dropout)
+                else:
+                    self.spat_encoder = SharingTemporalTransformer(args, input_dim, rot_token_channels, dropout)
             else:
-                # sharing 
-                self.spat_encoder = SharingTransformer(args, input_dim, rot_token_channels, dropout)
-        elif args.temporal_attn:
-            self.temp_pos_encoder = PositionalEncoding(dropout, input_dim, max_len=max_temp_num_token) # self.args.window_size
-            if args.weight_sharing==False:
-                # temporal 
-                self.spat_encoder = TwinTransformer(args, input_dim, rot_token_channels, dropout)
-            elif args.weight_sharing:
-                # sharing temporal
-                self.spat_encoder = SharingTemporalTransformer(args, input_dim, rot_token_channels, dropout)
-        else: 
-            raise NotImplementedError
+                raise NotImplementedError
         
         # proj
         total_embed_channels = 1*(rot_token_channels) #  + root_dim + 2*rest_token_channels
@@ -204,17 +211,16 @@ class SpatioTemporalTransformer(nn.Module):
         spat_b_t = concat_b_t.reshape(-1, self.spat_num_token, self.input_dim)
         
         """ Encoder """
-        # spatio positional encoding 
+        # spatio positional encoding
         spat_qa_embed = self.spat_pos_encoder(spat_a_t)
         spat_qb_embed = self.spat_pos_encoder(spat_b_t)
-        
+
         # net
-        if self.args.temporal_attn == False:
-            # base, sharing
-            out_a, out_b = \
-                self.spat_encoder(spat_qa_embed, spat_qb_embed)
+        if self.network_type in ('mlp', 'no_cross_attn') or self.args.temporal_attn == False:
+            # mlp / no_cross_attn / base / sharing: spatial only
+            out_a, out_b = self.spat_encoder(spat_qa_embed, spat_qb_embed)
         else:
-            # temporal positional encoding 
+            # full model with temporal attention
             temp_a_t = concat_a_t.transpose(1, 2)
             temp_b_t = concat_b_t.transpose(1, 2)
             temp_qa_embed = []
@@ -226,15 +232,11 @@ class SpatioTemporalTransformer(nn.Module):
             temp_qb_embed = torch.stack(temp_qb_embed, dim=0)
             temp_qa_embed = temp_qa_embed.reshape(-1, len_frame, self.input_dim)
             temp_qb_embed = temp_qb_embed.reshape(-1, len_frame, self.input_dim)
-            
-            if self.args.weight_sharing==False:
-                # temporal
-                out_a, out_b = \
-                    self.spat_encoder(temp_qa_embed, temp_qb_embed)
+
+            if self.args.weight_sharing == False:
+                out_a, out_b = self.spat_encoder(temp_qa_embed, temp_qb_embed)
             else:
-                # sharing temporal 
-                out_a, out_b = \
-                    self.spat_encoder(spat_qa_embed, spat_qb_embed, temp_qa_embed, temp_qb_embed)
+                out_a, out_b = self.spat_encoder(spat_qa_embed, spat_qb_embed, temp_qa_embed, temp_qb_embed)
             out_a = out_a.reshape(batch_size, self.spat_num_token, len_frame, self.rot_token_channels).transpose(1, 2)
             out_b = out_b.reshape(batch_size, self.spat_num_token, len_frame, self.rot_token_channels).transpose(1, 2)
             
@@ -261,6 +263,31 @@ class SpatioTemporalTransformer(nn.Module):
         delta_b_t = torch.cat((deltaq_b_t, root_deltaq_b_t), dim=-1)
         
         return delta_a_t, delta_b_t
+
+""" Ablation: MLP-only encoder (no attention) """
+
+class TwinMLPEncoder(nn.Module):
+    """각 캐릭터를 독립 MLP로 처리. attention 없음 (ablation: w/o attention)."""
+    def __init__(self, input_dim, token_channels, dropout):
+        super().__init__()
+        hidden = token_channels * 4
+        def _mlp():
+            return nn.Sequential(
+                nn.Linear(input_dim, hidden),
+                nn.ReLU(),
+                nn.Dropout(dropout),
+                nn.Linear(hidden, hidden),
+                nn.ReLU(),
+                nn.Dropout(dropout),
+                nn.Linear(hidden, token_channels),
+            )
+        self.mlp_a = _mlp()
+        self.mlp_b = _mlp()
+
+    def forward(self, pose_a_t, pose_b_t):
+        # (batch*frame, num_tokens, input_dim) → (batch*frame, num_tokens, token_channels)
+        return self.mlp_a(pose_a_t), self.mlp_b(pose_b_t)
+
 
 """ Transformer module """
 

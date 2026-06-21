@@ -30,6 +30,12 @@ def get_parser():
     parser.add_argument('--save_iter_epoch', type=int, default=500)
 
     """ network structure """
+    # network_type: ablation 선택
+    #   full          - SharingTransformer (self-attn + cross-attn, default)
+    #   no_cross_attn - TwinTransformer    (self-attn only, cross-attn 제거)
+    #   mlp           - TwinMLPEncoder     (attention 없음)
+    parser.add_argument('--network_type', type=str, default='full',
+                        choices=['full', 'no_cross_attn', 'mlp'])
     parser.add_argument('--weight_sharing', type=str_to_bool, default=True)
     parser.add_argument('--temporal_attn',  type=str_to_bool, default=False)
     parser.add_argument('--char_info', type=str, default="length")
