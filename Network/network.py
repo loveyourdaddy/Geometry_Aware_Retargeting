@@ -169,7 +169,8 @@ class Network():
         num_joint = self.args.num_joint
         
         num_char, num_role, num_scale, _, _, _ = gt0.shape
-        num_batch = num_motion // self.args.batch_size + 1
+        import math
+        num_batch = math.ceil(num_motion / self.args.batch_size)
         len_vids = anchor_vids.shape[1]
         
         # rest info
