@@ -243,8 +243,8 @@ class Network():
                                     _sR0, _sR1 = Q_to_R(_gt_R0), Q_to_R(_gt_R1)
                                 _sp0 = self.get_anchor_position(cid_, source_offsets0[cid_], _sR0, _root0, avpos_src_b, avids_src_b, batch_, frame_)
                                 _sp1 = self.get_anchor_position(cid_, source_offsets1[cid_], _sR1, _root1, avpos_src_b, avids_src_b, batch_, frame_)
-                                maps0_list.append(get_distance_map(_sp0, _sp1))
-                                maps1_list.append(get_distance_map(_sp1, _sp0))
+                                maps0_list.append(get_distance_map(_sp0, _sp1).cpu())
+                                maps1_list.append(get_distance_map(_sp1, _sp0).cpu())
                             precomp_src_map0[(cid_, rid_, sid_)] = maps0_list
                             precomp_src_map1[(cid_, rid_, sid_)] = maps1_list
             print("Precomputation done.")
@@ -394,8 +394,8 @@ class Network():
                                     out_anchor_pos1   = self.get_anchor_position(cid, tar_offset1, out_R1, root_p1, anchor_vpos1_b, anchor_vids1_b, batch, frame)
                                     out_anchor_map0   = get_distance_map(out_anchor_pos0, out_anchor_pos1.detach())
                                     out_anchor_map1   = get_distance_map(out_anchor_pos1, out_anchor_pos0.detach())
-                                    source_anchor_map0 = precomp_src_map0[(cid, rid, sid)][bid]
-                                    source_anchor_map1 = precomp_src_map1[(cid, rid, sid)][bid]
+                                    source_anchor_map0 = precomp_src_map0[(cid, rid, sid)][bid].to(self.args.device)
+                                    source_anchor_map1 = precomp_src_map1[(cid, rid, sid)][bid].to(self.args.device)
                                     anchor_loss0 = self.distance_map_loss(source_anchor_map0, out_anchor_map0)
                                     anchor_loss1 = self.distance_map_loss(source_anchor_map1, out_anchor_map1)
                                     loss0 += self.args.lambda_anchor * anchor_loss0
