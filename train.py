@@ -1,6 +1,5 @@
 '''
 python train.py
-
 python train.py --network_type no_cross_attn --proj_name ablation_no_cross
 python train.py --network_type mlp --proj_name ablation_mlp
 

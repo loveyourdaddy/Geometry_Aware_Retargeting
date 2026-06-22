@@ -105,7 +105,10 @@ class Network():
         from torch.utils.tensorboard import SummaryWriter
         from datasets.motion_functions import get_displacement_map, get_distance_map
         from tqdm import tqdm
+        from torch.cuda.amp import GradScaler, autocast
         writer = SummaryWriter(log_dir="./runs/" + self.args.proj_name)
+        use_amp = (self.args.device != 'cpu')
+        scaler = GradScaler(enabled=use_amp)
         print("train start")
 
         if True:
@@ -211,21 +214,42 @@ class Network():
         foot_contact_label0 = detect_foot_contact_from_batched_position(self.args, input_pos0)
         foot_contact_label1 = detect_foot_contact_from_batched_position(self.args, input_pos1)
         
-        # source TODO 
-        # anchor position
-        # source_anchor_positions0 = \
-        #     self.get_anchor_position(cid,
-        #                                 source_offsets0[0], source_R0, source_root_p0, 
-        #                                 anchor_vpos_src, anchor_vids_src, batch, frame)
-        # source_anchor_positions1 = \
-        #     self.get_anchor_position(cid,
-        #                                 source_offset1, source_R1, source_root_p1,
-        #                                 anchor_vpos_src_b, anchor_vids_src_b, batch, frame)
-        # distance map
-        # source_anchor_map0 = get_distance_map(source_anchor_positions0, source_anchor_positions1)
-        # source_anchor_map1 = get_distance_map(source_anchor_positions1, source_anchor_positions0)
-        
-        # load 
+        # Precompute GT source anchor distance maps (GT-based → constant across all epochs)
+        precomp_src_map0 = {}  # key: (cid, rid, sid) → list[tensor] per bid
+        precomp_src_map1 = {}
+        if self.args.loss_anchor:
+            print("Precomputing source anchor maps...")
+            with torch.no_grad():
+                for cid_ in range(num_char):
+                    for rid_ in range(num_role):
+                        pid_ = 1 - rid_
+                        for sid_ in range(num_scale):
+                            maps0_list, maps1_list = [], []
+                            for bid_ in range(num_batch):
+                                s_ = bid_ * self.args.batch_size
+                                e_ = min((bid_ + 1) * self.args.batch_size, num_motion)
+                                b_ = e_ - s_
+                                batch_ = torch.arange(b_).reshape(b_,1,1).repeat(1,len_frame,len_vids).to(self.args.device)
+                                frame_ = torch.arange(len_frame).reshape(1,len_frame,1).repeat(b_,1,len_vids).to(self.args.device)
+                                avids_src_b = anchor_vids_src.reshape(1,1,len_vids).repeat(b_,len_frame,1).to(self.args.device)
+                                avpos_src_b = anchor_vpos_src.reshape(1,1,len_vids,3).repeat(b_,len_frame,1,1).to(self.args.device)
+                                _gt_R0 = gt0[cid_,rid_,sid_,s_:e_,:,:-3].reshape(b_,len_frame,22,self.args.rot_dim)
+                                _gt_R1 = gt1[cid_,rid_,sid_,s_:e_,:,:-3].reshape(b_,len_frame,22,self.args.rot_dim)
+                                _root0 = gt0[cid_,rid_,sid_,s_:e_,:,-3:]
+                                _root1 = gt1[cid_,rid_,sid_,s_:e_,:,-3:]
+                                if self.args.rotation_rep == 'R6':
+                                    _sR0, _sR1 = R6_to_R(_gt_R0), R6_to_R(_gt_R1)
+                                else:
+                                    _sR0, _sR1 = Q_to_R(_gt_R0), Q_to_R(_gt_R1)
+                                _sp0 = self.get_anchor_position(cid_, source_offsets0[cid_], _sR0, _root0, avpos_src_b, avids_src_b, batch_, frame_)
+                                _sp1 = self.get_anchor_position(cid_, source_offsets1[cid_], _sR1, _root1, avpos_src_b, avids_src_b, batch_, frame_)
+                                maps0_list.append(get_distance_map(_sp0, _sp1))
+                                maps1_list.append(get_distance_map(_sp1, _sp0))
+                            precomp_src_map0[(cid_, rid_, sid_)] = maps0_list
+                            precomp_src_map1[(cid_, rid_, sid_)] = maps1_list
+            print("Precomputation done.")
+
+        # load
         if self.args.begin_epoch != 0:
             self.load(self.args.path, self.args.begin_epoch)
 
@@ -291,159 +315,101 @@ class Network():
                             foot_contact_label_b1 = foot_contact_label1[start:end]
                             
                             
-                            """ feed """
-                            # trf
-                            sour_rest0 = sour_info0[cid, sid].repeat(b_size*len_frame, 1, 1)
-                            sour_rest1 = sour_info1[cid, sid].repeat(b_size*len_frame, 1, 1)
-                            targ_rest0 = targ_info0[cid, rid, sid].repeat(b_size*len_frame, 1, 1)
-                            targ_rest1 = targ_info1[cid, rid, sid].repeat(b_size*len_frame, 1, 1)
-                            sour_rest0 = sour_rest0.reshape(b_size, len_frame, -1)
-                            sour_rest1 = sour_rest1.reshape(b_size, len_frame, -1)
-                            targ_rest0 = targ_rest0.reshape(b_size, len_frame, -1)
-                            targ_rest1 = targ_rest1.reshape(b_size, len_frame, -1)
-                            
-                            # forward 
-                            delta0, delta1 = \
-                                self.spatio_temp_net(input_b0[..., :-3], input_b1[..., :-3],
-                                                    input_b0[..., -3:], input_b1[..., -3:],
-                                                    input_pos_b0, input_pos_b1,
-                                                    sour_rest0, sour_rest1,
-                                                    targ_rest0, targ_rest1)
-                            output_motion0 = input_motion_b0 + delta0
-                            output_motion1 = input_motion_b1 + delta1
+                            """ feed + loss (AMP) """
+                            sour_rest0 = sour_info0[cid, sid].repeat(b_size*len_frame, 1, 1).reshape(b_size, len_frame, -1)
+                            sour_rest1 = sour_info1[cid, sid].repeat(b_size*len_frame, 1, 1).reshape(b_size, len_frame, -1)
+                            targ_rest0 = targ_info0[cid, rid, sid].repeat(b_size*len_frame, 1, 1).reshape(b_size, len_frame, -1)
+                            targ_rest1 = targ_info1[cid, rid, sid].repeat(b_size*len_frame, 1, 1).reshape(b_size, len_frame, -1)
 
+                            with autocast(enabled=use_amp):
+                                delta0, delta1 = \
+                                    self.spatio_temp_net(input_b0[..., :-3], input_b1[..., :-3],
+                                                        input_b0[..., -3:], input_b1[..., -3:],
+                                                        input_pos_b0, input_pos_b1,
+                                                        sour_rest0, sour_rest1,
+                                                        targ_rest0, targ_rest1)
+                                output_motion0 = input_motion_b0 + delta0
+                                output_motion1 = input_motion_b1 + delta1
 
-                            """ output """
-                            # rec 
-                            out_R0 = output_motion0[..., :-3]
-                            out_R1 = output_motion1[..., :-3]
-                            gt_R0 = gt_b0[..., :-3]
-                            gt_R1 = gt_b1[..., :-3]
-                            # root
-                            root_p0 = output_motion0[..., -3:]
-                            root_p1 = output_motion1[..., -3:]
-                            gt_root_p0 = gt_b0[..., -3:]
-                            gt_root_p1 = gt_b1[..., -3:]
-                            # offset 
-                            tar_offset0 = target_offsets0[cid, rid, sid].reshape(22, 3)
-                            tar_offset1 = target_offsets1[cid, rid, sid].reshape(22, 3)
+                                out_R0 = output_motion0[..., :-3]
+                                out_R1 = output_motion1[..., :-3]
+                                gt_R0  = gt_b0[..., :-3]
+                                gt_R1  = gt_b1[..., :-3]
+                                root_p0    = output_motion0[..., -3:]
+                                root_p1    = output_motion1[..., -3:]
+                                gt_root_p0 = gt_b0[..., -3:]
+                                gt_root_p1 = gt_b1[..., -3:]
+                                tar_offset0 = target_offsets0[cid, rid, sid].reshape(22, 3)
+                                tar_offset1 = target_offsets1[cid, rid, sid].reshape(22, 3)
 
+                                # base loss
+                                rec_loss0  = self.loss_func(out_R0, gt_R0)
+                                rec_loss1  = self.loss_func(out_R1, gt_R1)
+                                root_loss0 = self.loss_func(root_p0, gt_root_p0)
+                                root_loss1 = self.loss_func(root_p1, gt_root_p1)
+                                loss0 = self.args.lambda_rec*rec_loss0 + self.args.lambda_root*root_loss0
+                                loss1 = self.args.lambda_rec*rec_loss1 + self.args.lambda_root*root_loss1
+                                sum_rec_loss0  += rec_loss0.item()
+                                sum_rec_loss1  += rec_loss1.item()
+                                sum_root_loss0 += root_loss0.item()
+                                sum_root_loss1 += root_loss1.item()
 
-                            """ loss"""
-                            # base loss
-                            rec_loss0 = self.loss_func(out_R0, gt_R0)
-                            rec_loss1 = self.loss_func(out_R1, gt_R1)
-                            root_loss0 = self.loss_func(root_p0, gt_root_p0)
-                            root_loss1 = self.loss_func(root_p1, gt_root_p1)
-                            loss0 = self.args.lambda_rec*rec_loss0 + self.args.lambda_root*root_loss0
-                            loss1 = self.args.lambda_rec*rec_loss1 + self.args.lambda_root*root_loss1
-                            sum_rec_loss0 += rec_loss0.item()
-                            sum_rec_loss1 += rec_loss1.item()
-                            sum_root_loss0 += root_loss0.item()
-                            sum_root_loss1 += root_loss1.item()
-                            
-                            # rot reshape
-                            out_R0 = out_R0.reshape(b_size, len_frame, 22, 6)
-                            out_R1 = out_R1.reshape(b_size, len_frame, 22, 6)
-                            if self.args.rotation_rep == 'quat':
-                                out_R0 = Q_to_R(out_R0)
-                                out_R1 = Q_to_R(out_R1)
-                            elif self.args.rotation_rep == 'R6':
-                                out_R0 = R6_to_R(out_R0)
-                                out_R1 = R6_to_R(out_R1)
-                            else:
-                                raise ValueError('Invalid rotation representation')
-                            
-                            # fk loss
-                            _, out_pos0 = R_fk_from_given_info(out_R0, output_motion0[..., -3:], tar_offset0, parent_idx0)
-                            _, out_pos1 = R_fk_from_given_info(out_R1, output_motion1[..., -3:], tar_offset1, parent_idx1)
-                            if self.args.loss_fk:
-                                fk_loss0 = self.loss_func(out_pos0, gt_pos_b0)
-                                fk_loss1 = self.loss_func(out_pos1, gt_pos_b1)
-                                loss0 += self.args.lambda_fk * fk_loss0
-                                loss1 += self.args.lambda_fk * fk_loss1
-                                sum_fk_loss0 += fk_loss0.item()
-                                sum_fk_loss1 += fk_loss1.item()
-                            
-                            # foot contact loss
-                            if self.args.loss_foot_contact:
-                                foot_contact_loss0 = self.loss_func(out_pos0[foot_contact_label_b0][:, 1], gt_pos_b0[foot_contact_label_b0][:, 1])                             
-                                foot_contact_loss1 = self.loss_func(out_pos1[foot_contact_label_b1][:, 1], gt_pos_b1[foot_contact_label_b1][:, 1])
-                                loss0 += self.args.lambda_foot_contact * foot_contact_loss0
-                                loss1 += self.args.lambda_foot_contact * foot_contact_loss1
-                                sum_foot_contact_loss0 += foot_contact_loss0.item()
-                                sum_foot_contact_loss1 += foot_contact_loss1.item()
-                            
-                            # anchor loss 
-                            if self.args.loss_anchor:
-                                # vid 
-                                anchor_vids_src_b = anchor_vids_src.reshape(1, 1, len_vids).repeat(b_size, len_frame, 1).to(self.args.device)
-                                anchor_vids0_b = anchor_vids0.reshape(1, 1, len_vids).repeat(b_size, len_frame, 1).to(self.args.device)
-                                anchor_vids1_b = anchor_vids1.reshape(1, 1, len_vids).repeat(b_size, len_frame, 1).to(self.args.device)
-                                # vpos
-                                anchor_vpos_src_b = anchor_vpos_src.reshape(1, 1, len_vids, 3).repeat(b_size, len_frame, 1, 1).to(self.args.device)
-                                anchor_vpos0_Tpose_b = anchor_vpos0_Tpose.reshape(1, 1, len_vids, 3).repeat(b_size, len_frame, 1, 1).to(self.args.device)
-                                anchor_vpos1_Tpose_b = anchor_vpos1_Tpose.reshape(1, 1, len_vids, 3).repeat(b_size, len_frame, 1, 1).to(self.args.device)
-                                
-                                # source 
-                                # offset 
-                                source_offset0 = source_offsets0[cid]
-                                source_offset1 = source_offsets1[cid]
-                                # root 
-                                source_root_p0 = gt_root_p0
-                                source_root_p1 = gt_root_p1
-                                # rot reshape 
-                                gt_R0 = gt_R0.reshape(b_size, len_frame, 22, 6)
-                                gt_R1 = gt_R1.reshape(b_size, len_frame, 22, 6)
+                                # rot → R matrix
+                                out_R0 = out_R0.reshape(b_size, len_frame, 22, self.args.rot_dim)
+                                out_R1 = out_R1.reshape(b_size, len_frame, 22, self.args.rot_dim)
                                 if self.args.rotation_rep == 'quat':
-                                    source_R0 = Q_to_R(gt_R0)
-                                    source_R1 = Q_to_R(gt_R1)
-                                    # out_R0
+                                    out_R0, out_R1 = Q_to_R(out_R0), Q_to_R(out_R1)
                                 elif self.args.rotation_rep == 'R6':
-                                    source_R0 = R6_to_R(gt_R0)
-                                    source_R1 = R6_to_R(gt_R1)
-                                
-                                # anchor position
-                                # source 
-                                source_anchor_positions0 = \
-                                    self.get_anchor_position(cid,
-                                                             source_offset0, source_R0, source_root_p0, 
-                                                             anchor_vpos_src_b, anchor_vids_src_b, batch, frame)
-                                source_anchor_positions1 = \
-                                    self.get_anchor_position(cid,
-                                                             source_offset1, source_R1, source_root_p1,
-                                                             anchor_vpos_src_b, anchor_vids_src_b, batch, frame)
+                                    out_R0, out_R1 = R6_to_R(out_R0), R6_to_R(out_R1)
+                                else:
+                                    raise ValueError('Invalid rotation representation')
 
-                                # output
-                                out_anchor_positions0 = \
-                                    self.get_anchor_position(cid,
-                                                             tar_offset0, out_R0, root_p0, 
-                                                             anchor_vpos0_Tpose_b, anchor_vids0_b, batch, frame)
-                                out_anchor_positions1 = \
-                                    self.get_anchor_position(cid,
-                                                             tar_offset1, out_R1, root_p1,
-                                                             anchor_vpos1_Tpose_b, anchor_vids1_b, batch, frame)
-                                
-                                # distance map
-                                source_anchor_map0 = get_distance_map(source_anchor_positions0, source_anchor_positions1)
-                                source_anchor_map1 = get_distance_map(source_anchor_positions1, source_anchor_positions0)
-                                out_anchor_map0 = get_distance_map(out_anchor_positions0, out_anchor_positions1.detach())
-                                out_anchor_map1 = get_distance_map(out_anchor_positions1, out_anchor_positions0.detach())
-                                # loss
-                                anchor_loss0 = self.distance_map_loss(source_anchor_map0, out_anchor_map0)
-                                anchor_loss1 = self.distance_map_loss(source_anchor_map1, out_anchor_map1)
-                                # add loss 
-                                loss0 += self.args.lambda_anchor*anchor_loss0
-                                loss1 += self.args.lambda_anchor*anchor_loss1
-                                sum_anchor_disp_loss0 += anchor_loss0.item()
-                                sum_anchor_disp_loss1 += anchor_loss1.item()
-                            
-                            
+                                # fk
+                                _, out_pos0 = R_fk_from_given_info(out_R0, output_motion0[..., -3:], tar_offset0, parent_idx0)
+                                _, out_pos1 = R_fk_from_given_info(out_R1, output_motion1[..., -3:], tar_offset1, parent_idx1)
+                                if self.args.loss_fk:
+                                    fk_loss0 = self.loss_func(out_pos0, gt_pos_b0)
+                                    fk_loss1 = self.loss_func(out_pos1, gt_pos_b1)
+                                    loss0 += self.args.lambda_fk * fk_loss0
+                                    loss1 += self.args.lambda_fk * fk_loss1
+                                    sum_fk_loss0 += fk_loss0.item()
+                                    sum_fk_loss1 += fk_loss1.item()
+
+                                # foot contact loss
+                                if self.args.loss_foot_contact:
+                                    foot_contact_loss0 = self.loss_func(out_pos0[foot_contact_label_b0][:, 1], gt_pos_b0[foot_contact_label_b0][:, 1])
+                                    foot_contact_loss1 = self.loss_func(out_pos1[foot_contact_label_b1][:, 1], gt_pos_b1[foot_contact_label_b1][:, 1])
+                                    loss0 += self.args.lambda_foot_contact * foot_contact_loss0
+                                    loss1 += self.args.lambda_foot_contact * foot_contact_loss1
+                                    sum_foot_contact_loss0 += foot_contact_loss0.item()
+                                    sum_foot_contact_loss1 += foot_contact_loss1.item()
+
+                                # anchor loss — source maps are precomputed (GT, epoch-invariant)
+                                if self.args.loss_anchor:
+                                    anchor_vids0_b    = anchor_vids0.reshape(1,1,len_vids).repeat(b_size,len_frame,1).to(self.args.device)
+                                    anchor_vids1_b    = anchor_vids1.reshape(1,1,len_vids).repeat(b_size,len_frame,1).to(self.args.device)
+                                    anchor_vpos0_b    = anchor_vpos0_Tpose.reshape(1,1,len_vids,3).repeat(b_size,len_frame,1,1).to(self.args.device)
+                                    anchor_vpos1_b    = anchor_vpos1_Tpose.reshape(1,1,len_vids,3).repeat(b_size,len_frame,1,1).to(self.args.device)
+                                    out_anchor_pos0   = self.get_anchor_position(cid, tar_offset0, out_R0, root_p0, anchor_vpos0_b, anchor_vids0_b, batch, frame)
+                                    out_anchor_pos1   = self.get_anchor_position(cid, tar_offset1, out_R1, root_p1, anchor_vpos1_b, anchor_vids1_b, batch, frame)
+                                    out_anchor_map0   = get_distance_map(out_anchor_pos0, out_anchor_pos1.detach())
+                                    out_anchor_map1   = get_distance_map(out_anchor_pos1, out_anchor_pos0.detach())
+                                    source_anchor_map0 = precomp_src_map0[(cid, rid, sid)][bid]
+                                    source_anchor_map1 = precomp_src_map1[(cid, rid, sid)][bid]
+                                    anchor_loss0 = self.distance_map_loss(source_anchor_map0, out_anchor_map0)
+                                    anchor_loss1 = self.distance_map_loss(source_anchor_map1, out_anchor_map1)
+                                    loss0 += self.args.lambda_anchor * anchor_loss0
+                                    loss1 += self.args.lambda_anchor * anchor_loss1
+                                    sum_anchor_disp_loss0 += anchor_loss0.item()
+                                    sum_anchor_disp_loss1 += anchor_loss1.item()
+
+                                loss = loss0 + loss1
+
                             """ backward """
-                            loss = loss0 + loss1
-                            self.optimizer.zero_grad()
-                            loss.backward()
-                            self.optimizer.step()
+                            self.optimizer.zero_grad(set_to_none=True)
+                            scaler.scale(loss).backward()
+                            scaler.step(self.optimizer)
+                            scaler.update()
                             # batch end 
                         # scale end 
                     # role end 
@@ -451,16 +417,17 @@ class Network():
             
             
             """ validation loss """
-            delta0, delta1 = \
-                self.spatio_temp_net(input0[:1, ..., :-3], input1[:1, ..., :-3],
-                                     input0[:1, ..., -3:], input1[:1, ..., -3:],
-                                     input_pos0[:1], input_pos1[:1],
-                                     valid_sour_rest0, valid_sour_rest1,
-                                     valid_targ_rest0, valid_targ_rest1)
-            output_motion0 = input_motion0[:1] + delta0
-            output_motion1 = input_motion1[:1] + delta1
-            valid_loss0 = self.loss_func(output_motion0, valid_gt0[:1])
-            valid_loss1 = self.loss_func(output_motion1, valid_gt1[:1])
+            with torch.no_grad(), autocast(enabled=use_amp):
+                delta0, delta1 = \
+                    self.spatio_temp_net(input0[:1, ..., :-3], input1[:1, ..., :-3],
+                                         input0[:1, ..., -3:], input1[:1, ..., -3:],
+                                         input_pos0[:1], input_pos1[:1],
+                                         valid_sour_rest0, valid_sour_rest1,
+                                         valid_targ_rest0, valid_targ_rest1)
+                output_motion0 = input_motion0[:1] + delta0
+                output_motion1 = input_motion1[:1] + delta1
+                valid_loss0 = self.loss_func(output_motion0, valid_gt0[:1])
+                valid_loss1 = self.loss_func(output_motion1, valid_gt1[:1])
             
             
             """ log """
