@@ -215,40 +215,6 @@ class Network():
         foot_contact_label0 = detect_foot_contact_from_batched_position(self.args, input_pos0)
         foot_contact_label1 = detect_foot_contact_from_batched_position(self.args, input_pos1)
         
-        # Precompute GT source anchor distance maps (GT-based → constant across all epochs)
-        precomp_src_map0 = {}  # key: (cid, rid, sid) → list[tensor] per bid
-        precomp_src_map1 = {}
-        if self.args.loss_anchor:
-            print("Precomputing source anchor maps...")
-            with torch.no_grad():
-                for cid_ in range(num_char):
-                    for rid_ in range(num_role):
-                        pid_ = 1 - rid_
-                        for sid_ in range(num_scale):
-                            maps0_list, maps1_list = [], []
-                            for bid_ in range(num_batch):
-                                s_ = bid_ * self.args.batch_size
-                                e_ = min((bid_ + 1) * self.args.batch_size, num_motion)
-                                b_ = e_ - s_
-                                batch_ = torch.arange(b_).reshape(b_,1,1).repeat(1,len_frame,len_vids).to(self.args.device)
-                                frame_ = torch.arange(len_frame).reshape(1,len_frame,1).repeat(b_,1,len_vids).to(self.args.device)
-                                avids_src_b = anchor_vids_src.reshape(1,1,len_vids).repeat(b_,len_frame,1).to(self.args.device)
-                                avpos_src_b = anchor_vpos_src.reshape(1,1,len_vids,3).repeat(b_,len_frame,1,1).to(self.args.device)
-                                _gt_R0 = gt0[cid_,rid_,sid_,s_:e_,:,:-3].reshape(b_,len_frame,22,self.args.rot_dim)
-                                _gt_R1 = gt1[cid_,rid_,sid_,s_:e_,:,:-3].reshape(b_,len_frame,22,self.args.rot_dim)
-                                _root0 = gt0[cid_,rid_,sid_,s_:e_,:,-3:]
-                                _root1 = gt1[cid_,rid_,sid_,s_:e_,:,-3:]
-                                if self.args.rotation_rep == 'R6':
-                                    _sR0, _sR1 = R6_to_R(_gt_R0), R6_to_R(_gt_R1)
-                                else:
-                                    _sR0, _sR1 = Q_to_R(_gt_R0), Q_to_R(_gt_R1)
-                                _sp0 = self.get_anchor_position(cid_, source_offsets0[cid_], _sR0, _root0, avpos_src_b, avids_src_b, batch_, frame_)
-                                _sp1 = self.get_anchor_position(cid_, source_offsets1[cid_], _sR1, _root1, avpos_src_b, avids_src_b, batch_, frame_)
-                                maps0_list.append(get_distance_map(_sp0, _sp1).cpu())
-                                maps1_list.append(get_distance_map(_sp1, _sp0).cpu())
-                            precomp_src_map0[(cid_, rid_, sid_)] = maps0_list
-                            precomp_src_map1[(cid_, rid_, sid_)] = maps1_list
-            print("Precomputation done.")
 
         # load
         if self.args.begin_epoch != 0:
@@ -385,18 +351,30 @@ class Network():
                                     sum_foot_contact_loss0 += foot_contact_loss0.item()
                                     sum_foot_contact_loss1 += foot_contact_loss1.item()
 
-                                # anchor loss — source maps are precomputed (GT, epoch-invariant)
+                                # anchor loss
                                 if self.args.loss_anchor:
+                                    anchor_vids_src_b = anchor_vids_src.reshape(1,1,len_vids).repeat(b_size,len_frame,1).to(self.args.device)
                                     anchor_vids0_b    = anchor_vids0.reshape(1,1,len_vids).repeat(b_size,len_frame,1).to(self.args.device)
                                     anchor_vids1_b    = anchor_vids1.reshape(1,1,len_vids).repeat(b_size,len_frame,1).to(self.args.device)
+                                    anchor_vpos_src_b = anchor_vpos_src.reshape(1,1,len_vids,3).repeat(b_size,len_frame,1,1).to(self.args.device)
                                     anchor_vpos0_b    = anchor_vpos0_Tpose.reshape(1,1,len_vids,3).repeat(b_size,len_frame,1,1).to(self.args.device)
                                     anchor_vpos1_b    = anchor_vpos1_Tpose.reshape(1,1,len_vids,3).repeat(b_size,len_frame,1,1).to(self.args.device)
-                                    out_anchor_pos0   = self.get_anchor_position(cid, tar_offset0, out_R0, root_p0, anchor_vpos0_b, anchor_vids0_b, batch, frame)
-                                    out_anchor_pos1   = self.get_anchor_position(cid, tar_offset1, out_R1, root_p1, anchor_vpos1_b, anchor_vids1_b, batch, frame)
-                                    out_anchor_map0   = get_distance_map(out_anchor_pos0, out_anchor_pos1.detach())
-                                    out_anchor_map1   = get_distance_map(out_anchor_pos1, out_anchor_pos0.detach())
-                                    source_anchor_map0 = precomp_src_map0[(cid, rid, sid)][bid].to(self.args.device)
-                                    source_anchor_map1 = precomp_src_map1[(cid, rid, sid)][bid].to(self.args.device)
+                                    # source (GT-based)
+                                    gt_R0_ = gt_b0[..., :-3].reshape(b_size,len_frame,22,self.args.rot_dim)
+                                    gt_R1_ = gt_b1[..., :-3].reshape(b_size,len_frame,22,self.args.rot_dim)
+                                    if self.args.rotation_rep == 'R6':
+                                        src_R0, src_R1 = R6_to_R(gt_R0_), R6_to_R(gt_R1_)
+                                    else:
+                                        src_R0, src_R1 = Q_to_R(gt_R0_), Q_to_R(gt_R1_)
+                                    src_pos0 = self.get_anchor_position(cid, source_offsets0[cid], src_R0, gt_root_p0, anchor_vpos_src_b, anchor_vids_src_b, batch, frame)
+                                    src_pos1 = self.get_anchor_position(cid, source_offsets1[cid], src_R1, gt_root_p1, anchor_vpos_src_b, anchor_vids_src_b, batch, frame)
+                                    source_anchor_map0 = get_distance_map(src_pos0, src_pos1)
+                                    source_anchor_map1 = get_distance_map(src_pos1, src_pos0)
+                                    # output
+                                    out_anchor_pos0 = self.get_anchor_position(cid, tar_offset0, out_R0, root_p0, anchor_vpos0_b, anchor_vids0_b, batch, frame)
+                                    out_anchor_pos1 = self.get_anchor_position(cid, tar_offset1, out_R1, root_p1, anchor_vpos1_b, anchor_vids1_b, batch, frame)
+                                    out_anchor_map0 = get_distance_map(out_anchor_pos0, out_anchor_pos1.detach())
+                                    out_anchor_map1 = get_distance_map(out_anchor_pos1, out_anchor_pos0.detach())
                                     anchor_loss0 = self.distance_map_loss(source_anchor_map0, out_anchor_map0)
                                     anchor_loss1 = self.distance_map_loss(source_anchor_map1, out_anchor_map1)
                                     loss0 += self.args.lambda_anchor * anchor_loss0
