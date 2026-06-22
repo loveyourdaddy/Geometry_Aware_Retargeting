@@ -102,8 +102,10 @@ class Network():
             out_root_ps1, out_R1
 
     def train_(self, dataset):
-        # import wandb
+        from torch.utils.tensorboard import SummaryWriter
         from datasets.motion_functions import get_displacement_map, get_distance_map
+        from tqdm import tqdm
+        writer = SummaryWriter(log_dir="./runs/" + self.args.proj_name)
         print("train start")
 
         if True:
@@ -228,7 +230,8 @@ class Network():
             self.load(self.args.path, self.args.begin_epoch)
 
         # train
-        for epoch in range(self.args.begin_epoch, self.args.end_epoch):
+        pbar = tqdm(range(self.args.begin_epoch, self.args.end_epoch), desc="Training")
+        for epoch in pbar:
             # loss record 
             sum_rec_loss0 = 0
             sum_rec_loss1 = 0
@@ -460,29 +463,31 @@ class Network():
             valid_loss1 = self.loss_func(output_motion1, valid_gt1[:1])
             
             
-            # """ log """
-            # wandb.log({
-            #     "epoch": epoch, 
-            #     "rec_loss0": sum_rec_loss0, 
-            #     "rec_loss1": sum_rec_loss1, 
-            #     "root_loss0": sum_root_loss0, 
-            #     "root_loss1": sum_root_loss1, 
-            #     "fk_loss0": sum_fk_loss0, 
-            #     "fk_loss1": sum_fk_loss1, 
-            #     "foot_contact_loss0": sum_foot_contact_loss0,
-            #     "foot_contact_loss1": sum_foot_contact_loss1,
-                
-            #     "disp_loss0": sum_anchor_disp_loss0,
-            #     "disp_loss1": sum_anchor_disp_loss1,
-            #     "valid_loss0": valid_loss0,
-            #     "valid_loss1": valid_loss1,
-            #     }
-            # )
+            """ log """
+            pbar.set_postfix({
+                "rec":   f"{(sum_rec_loss0 + sum_rec_loss1):.3f}",
+                "root":  f"{(sum_root_loss0 + sum_root_loss1):.3f}",
+                "fk":    f"{(sum_fk_loss0 + sum_fk_loss1):.3f}",
+                "anc":   f"{(sum_anchor_disp_loss0 + sum_anchor_disp_loss1):.3f}",
+                "val":   f"{(valid_loss0.item() + valid_loss1.item()):.3f}",
+            })
+            writer.add_scalar("loss/rec_loss0", sum_rec_loss0, epoch)
+            writer.add_scalar("loss/rec_loss1", sum_rec_loss1, epoch)
+            writer.add_scalar("loss/root_loss0", sum_root_loss0, epoch)
+            writer.add_scalar("loss/root_loss1", sum_root_loss1, epoch)
+            writer.add_scalar("loss/fk_loss0", sum_fk_loss0, epoch)
+            writer.add_scalar("loss/fk_loss1", sum_fk_loss1, epoch)
+            writer.add_scalar("loss/foot_contact_loss0", sum_foot_contact_loss0, epoch)
+            writer.add_scalar("loss/foot_contact_loss1", sum_foot_contact_loss1, epoch)
+            writer.add_scalar("loss/anchor_disp_loss0", sum_anchor_disp_loss0, epoch)
+            writer.add_scalar("loss/anchor_disp_loss1", sum_anchor_disp_loss1, epoch)
+            writer.add_scalar("loss/valid_loss0", valid_loss0.item(), epoch)
+            writer.add_scalar("loss/valid_loss1", valid_loss1.item(), epoch)
             # end epoch
             if epoch != self.args.begin_epoch and (epoch == self.args.end_epoch - 1 or epoch % self.args.save_iter_epoch == 0):
                 self.save(self.args.path, epoch)
                 print("save model at epoch {}".format(epoch))
-        # wandb.finish()
+        writer.close()
 
     def get_anchor_position(self, cid, offset, gt_R, gt_root_p, 
                             anchor_vpos_b, anchor_vids_b, batch, frame):

@@ -21,6 +21,8 @@ from Network.network import Network
 
 
 def main(args):
+    from datetime import datetime
+    args.proj_name = datetime.now().strftime("%y%m%d") + "_" + args.proj_name
     args.path = args.proj_name + '/'
 
     seed_value = args.seed_value

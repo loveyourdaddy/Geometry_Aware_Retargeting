@@ -9,7 +9,7 @@ def get_parser():
     parser = argparse.ArgumentParser()
 
     # train
-    parser.add_argument('--proj_name', type=str, default='')
+    parser.add_argument('--proj_name', type=str, default='full')
 
     # test
     parser.add_argument('--test_proj',  type=str, default='240804_Gt1Root10Fk100Anchor10_footContact')

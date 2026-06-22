@@ -1,5 +1,11 @@
 '''
 python test.py
+python test.py --network_type no_cross_attn --test_proj ablation_no_cross
+python test.py --network_type mlp           --test_proj ablation_mlp
+
+python test.py --network_type no_cross_attn --test_proj ablation_no_cross --test_epoch 500
+
+
 '''
 
 import sys

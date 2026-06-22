@@ -104,3 +104,5 @@ auramesh/*.npy
 visualize/*
 auramesh/saved_result/*
 auramesh/pt/*
+_old/backup/
+_old/old/
