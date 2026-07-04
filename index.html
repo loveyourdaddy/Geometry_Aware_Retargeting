@@ -24,17 +24,6 @@
   <script src="./static/js/bulma-carousel.min.js"></script>
   <script src="./static/js/bulma-slider.min.js"></script>
   <script src="./static/js/index.js"></script>
-  <script>
-    $(document).ready(function() {
-      bulmaCarousel.attach('#comparison-carousel', {
-        slidesToScroll: 1,
-        slidesToShow: 1,
-        loop: true,
-        infinite: true,
-        autoplay: false
-      });
-    });
-  </script>
 
   <style>
     .figure-caption {
@@ -44,17 +33,6 @@
     }
     .method-figure img {
       border-radius: 10px;
-    }
-    .comparison-item {
-      padding: 1rem 1.5rem 1.5rem;
-      background: #fff;
-    }
-    .metric-table td, .metric-table th {
-      vertical-align: middle;
-      text-align: center;
-    }
-    .metric-table td:first-child, .metric-table th:first-child {
-      text-align: left;
     }
     .section-light {
       background-color: #f7f7f9;
@@ -377,133 +355,6 @@
   </div>
 </section>
 
-<!-- ==================== Comparison with Baselines ==================== -->
-<section class="section">
-  <div class="container is-max-desktop">
-    <div class="columns is-centered has-text-centered">
-      <div class="column is-full">
-        <h2 class="title is-3">Comparison with Baselines</h2>
-        <div class="content has-text-justified">
-          <p>
-            We compare SCT against Copy, NKN, PMnet, and R2ET on simple interactions
-            (greeting, hand-shaking, punching) and complex interactions (salsa dance, lift-pushup, kick-back).
-            Because SCT recognizes the bone offsets and mesh shapes of <b>both</b> target characters,
-            it preserves the interaction semantics, whereas the baselines perform retargeting on each
-            character independently, leading to improper interactions.
-          </p>
-        </div>
-      </div>
-    </div>
-
-    <div id="comparison-carousel" class="results-carousel">
-      <div class="item comparison-item">
-        <img src="./static/images/paper/comp_simple.png" alt="Simple motions retargeted by Copy, NKN, PMnet, R2ET, and ours">
-        <p class="figure-caption">
-          <b>Simple interactions.</b> For a rapper-style greeting motion, our method makes the tall character
-          bend his knee and lower his arm while the short character raises her arm higher to reach the
-          partner's hand. The retargeted motions of the baselines hardly preserve the interaction semantics.
-        </p>
-      </div>
-      <div class="item comparison-item">
-        <img src="./static/images/paper/comp_complex.png" alt="Complex dance motion retargeted to short, chubby, and big characters">
-        <p class="figure-caption">
-          <b>Complex interactions.</b> A salsa dance motion is retargeted to short, chubby, and big characters
-          (top: front view, bottom: back view). The partner's hand is located properly on the waist, and the
-          leaning character adjusts its posture to avoid collision with the enlarged body of the partner.
-        </p>
-      </div>
-      <div class="item comparison-item">
-        <img src="./static/images/paper/comp_chubby.png" alt="Complex dance motion retargeted to a chubby character by the baselines and ours">
-        <p class="figure-caption">
-          <b>Retargeting to a chubby character.</b> In contrast to the baseline methods that result in
-          overlapping bodies, the interaction motions of the two characters retargeted by SCT do not overlap,
-          while the contact on the waist (red circle) is preserved.
-        </p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ==================== Quantitative Results ==================== -->
-<section class="section section-light">
-  <div class="container is-max-desktop">
-    <div class="columns is-centered has-text-centered">
-      <div class="column is-four-fifths">
-        <h2 class="title is-3">Quantitative Results</h2>
-        <div class="content has-text-justified">
-          <p>
-            We measure <b>semantic preservation</b> (joint-wise and anchor-wise distances to the source semantics;
-            lower is better) and <b>artifact avoidance</b> (precision / recall / accuracy of contact preservation;
-            higher is better). Our method achieves the best contact accuracy of <b>0.894</b>, showing that the
-            retargeted motion both preserves the contacts observed in the source motions and avoids
-            unnecessary contacts.
-          </p>
-        </div>
-        <div class="table-container">
-          <table class="table is-bordered is-striped is-fullwidth metric-table">
-            <thead>
-              <tr>
-                <th rowspan="2">Method</th>
-                <th colspan="2">Semantic preservation</th>
-                <th colspan="3">Artifact avoidance</th>
-              </tr>
-              <tr>
-                <th>Skeletal &darr;</th>
-                <th>Anchor &darr;</th>
-                <th>Precision &uarr;</th>
-                <th>Recall &uarr;</th>
-                <th>Accuracy &uarr;</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td><b>SCT (ours)</b></td>
-                <td><u>0.036</u></td><td>0.313</td>
-                <td><b>0.452</b></td><td><u>0.976</u></td><td><b>0.894</b></td>
-              </tr>
-              <tr>
-                <td>R2ET</td>
-                <td>0.102</td><td>0.685</td>
-                <td>0.203</td><td>0.949</td><td>0.619</td>
-              </tr>
-              <tr>
-                <td>PMnet</td>
-                <td>0.236</td><td>1.037</td>
-                <td>0.172</td><td><b>0.980</b></td><td>0.602</td>
-              </tr>
-              <tr>
-                <td>NKN</td>
-                <td>0.230</td><td>1.027</td>
-                <td>0.216</td><td>0.925</td><td>0.624</td>
-              </tr>
-              <tr>
-                <td>Copy</td>
-                <td>0.037</td><td>0.354</td>
-                <td>0.348</td><td>0.963</td><td>0.750</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <p class="figure-caption has-text-justified">
-          Quantitative comparison with baselines for interaction motions.
-          <b>Bold</b> indicates the best value and <u>underline</u> indicates the second-best value.
-        </p>
-
-        <div class="content has-text-justified" style="margin-top: 2rem;">
-          <h3 class="title is-4">User Study</h3>
-          <p>
-            We recruited 20 participants (including 3 expert animation artists) to evaluate 10 motion
-            sequences for 5 characters on a 5-point Likert scale. The retargeted motions of SCT were the
-            most preferred in both criteria: <b>semantic preservation</b> (4.35 by experts, 4.43 by non-experts)
-            and <b>artifact avoidance</b> (4.24 by experts, 4.33 by non-experts), outperforming R2ET, PMnet,
-            NKN, and Copy by a large margin.
-          </p>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
 <!-- ==================== Comparison with AuraMesh ==================== -->
 <section class="section">
   <div class="container is-max-desktop">
@@ -518,34 +369,6 @@
           approximately <b>588&times; faster</b> for simple motions and <b>764&times; faster</b> for complex motions,
           since it requires no frame-by-frame collision-detection optimization &mdash; enabling real-time
           applications such as live motion capture and games.
-        </p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ==================== Robustness ==================== -->
-<section class="section section-light">
-  <div class="container is-max-desktop">
-    <div class="columns is-centered has-text-centered">
-      <div class="column is-full method-figure">
-        <h2 class="title is-3">Retargeting under Extreme Deformation</h2>
-        <div class="content has-text-justified">
-          <p>
-            We investigate the extent of acceptable deformation of the target character by varying the
-            <b>height</b> (scales 0.5&ndash;1.4) and the <b>volume</b> (skinny 0.6 to bulky 1.4) of the character,
-            beyond the trained range (0.7&ndash;1.2). Contact points of interaction are preserved when
-            the retargeting is performed within the trained range, and degrade gracefully outside of it
-            (red circles).
-          </p>
-        </div>
-        <img src="./static/images/paper/deform_height.png" alt="Retargeted motions when the target character becomes extremely short or tall" style="margin-bottom: 0.5rem;">
-        <p class="figure-caption">
-          (a) The target main character (red) changes from the normal character to an extremely short or tall character.
-        </p>
-        <img src="./static/images/paper/deform_volume.png" alt="Retargeted motions when the target character becomes extremely skinny or bulky" style="margin-top: 1.5rem; margin-bottom: 0.5rem;">
-        <p class="figure-caption">
-          (b) The target main character (red) changes from the normal character to an extremely skinny or bulky character.
         </p>
       </div>
     </div>
