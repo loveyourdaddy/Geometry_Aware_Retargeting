@@ -3,23 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="description"
-        content="Geometry-aware Retargeting for Two-Skinned Character Interaction">
+        content="Geometry-Aware Retargeting for Two-Skinned Characters Interaction (ACM TOG / SIGGRAPH Asia 2024). A Spatio Cooperative Transformer retargets interaction motions between two skinned characters with arbitrary mesh connectivity while preserving contact semantics.">
+  <meta name="keywords" content="motion retargeting, character animation, two character interaction, SIGGRAPH Asia">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Geometry-aware Retargeting for Two-Skinned Character Interaction</title>
-
-  <!-- Global site tag (gtag.js) - Google Analytics -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-PYVRSFMDRL"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-
-    function gtag() {
-      dataLayer.push(arguments);
-    }
-
-    gtag('js', new Date());
-
-    gtag('config', 'G-PYVRSFMDRL');
-  </script>
+  <title>Geometry-Aware Retargeting for Two Skinned Characters Interaction</title>
 
   <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro"
         rel="stylesheet">
@@ -31,13 +18,48 @@
   <link rel="stylesheet"
         href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
   <link rel="stylesheet" href="./static/css/index.css">
-  <!-- <link rel="icon" href="./static/images/favicon.svg"> -->
 
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
   <script defer src="./static/js/fontawesome.all.min.js"></script>
   <script src="./static/js/bulma-carousel.min.js"></script>
   <script src="./static/js/bulma-slider.min.js"></script>
   <script src="./static/js/index.js"></script>
+  <script>
+    $(document).ready(function() {
+      bulmaCarousel.attach('#comparison-carousel', {
+        slidesToScroll: 1,
+        slidesToShow: 1,
+        loop: true,
+        infinite: true,
+        autoplay: false
+      });
+    });
+  </script>
+
+  <style>
+    .figure-caption {
+      font-size: 0.9rem;
+      color: #555;
+      margin-top: 0.75rem;
+    }
+    .method-figure img {
+      border-radius: 10px;
+    }
+    .comparison-item {
+      padding: 1rem 1.5rem 1.5rem;
+      background: #fff;
+    }
+    .metric-table td, .metric-table th {
+      vertical-align: middle;
+      text-align: center;
+    }
+    .metric-table td:first-child, .metric-table th:first-child {
+      text-align: left;
+    }
+    .section-light {
+      background-color: #f7f7f9;
+    }
+  </style>
 </head>
 <body>
 
@@ -56,38 +78,18 @@
           <i class="fas fa-home"></i>
       </span>
       </a>
-
-      <!-- <div class="navbar-item has-dropdown is-hoverable">
-        <a class="navbar-link">
-          More Research
-        </a>
-        <div class="navbar-dropdown">
-          <a class="navbar-item" href="https://hypernerf.github.io">
-            HyperNeRF
-          </a>
-          <a class="navbar-item" href="https://nerfies.github.io">
-            Nerfies
-          </a>
-          <a class="navbar-item" href="https://latentfusion.github.io">
-            LatentFusion
-          </a>
-          <a class="navbar-item" href="https://photoshape.github.io">
-            PhotoShape
-          </a>
-        </div>
-      </div> -->
     </div>
-
   </div>
 </nav>
 
+<!-- ==================== Hero ==================== -->
 <section class="hero">
   <div class="hero-body">
     <div class="container is-max-desktop">
       <div class="columns is-centered">
         <div class="column has-text-centered">
           <!-- title -->
-          <h1 class="title is-1 publication-title">Geometry-aware Retargeting for Two-Skinned Character Interaction</h1>
+          <h1 class="title is-1 publication-title">Geometry-Aware Retargeting for Two Skinned Characters Interaction</h1>
           <!-- Authors -->
           <div class="is-size-5 publication-authors">
             <span class="author-block">
@@ -105,10 +107,15 @@
             </span>
           </div>
 
-          <!-- Company -->
+          <!-- Affiliations -->
           <div class="is-size-5 publication-authors">
-            <span class="author-block">KAIST<sup>1</sup>,</span>
+            <span class="author-block">Visual Media Lab, KAIST<sup>1</sup>,</span>
             <span class="author-block">KAI Inc.<sup>2</sup></span>
+          </div>
+
+          <!-- Venue -->
+          <div class="is-size-5 publication-authors" style="margin-top: 0.5rem;">
+            <span class="publication-venue">ACM Transactions on Graphics, Vol. 43, No. 6 (SIGGRAPH Asia 2024 Journal Track)</span>
           </div>
 
           <div class="column has-text-centered">
@@ -117,12 +124,20 @@
               <span class="link-block">
                 <a href="https://github.com/loveyourdaddy/Geometry_Aware_Retargeting.github.io/blob/main/Geometry_Aware_Retargeting_for_Two_Skinned_Characters_Interaction.pdf"
                    class="external-link button is-normal is-rounded is-dark">
-                   <!-- https://drive.google.com/file/d/1wRKR2reQ8h0H34fwkXVgDpEqsnko5Obz/view?usp=sharing -->
                   <span class="icon">
-                      <i class=""></i> 
-                      <!-- ai ai-arxiv -->
+                      <i class="fas fa-file-pdf"></i>
                   </span>
                   <span>Paper</span>
+                </a>
+              </span>
+              <!-- DOI Link. -->
+              <span class="link-block">
+                <a href="https://doi.org/10.1145/3687962"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="ai ai-acm"></i>
+                  </span>
+                  <span>ACM DL</span>
                 </a>
               </span>
               <!-- Video Link. -->
@@ -135,27 +150,7 @@
                   <span>Video</span>
                 </a>
               </span>
-              <!-- Code Link. TODO -->
-              <!-- <span class="link-block">
-                <a href="https://github.com/google/nerfies"
-                   class="external-link button is-normal is-rounded is-dark">
-                  <span class="icon">
-                      <i class="fab fa-github"></i>
-                  </span>
-                  <span>Code</span>
-                  </a>
-              </span> -->
-              <!-- Dataset Link. -->
-              <!-- <span class="link-block">
-                <a href="https://github.com/google/nerfies/releases/tag/0.1"
-                   class="external-link button is-normal is-rounded is-dark">
-                  <span class="icon">
-                      <i class="far fa-images"></i>
-                  </span>
-                  <span>Data</span>
-                  </a> -->
             </div>
-
           </div>
         </div>
       </div>
@@ -163,167 +158,430 @@
   </div>
 </section>
 
-<!-- <section class="hero teaser">
+<!-- ==================== Teaser ==================== -->
+<section class="hero teaser">
   <div class="container is-max-desktop">
     <div class="hero-body">
-      <video id="teaser" autoplay muted loop playsinline height="100%">
-        <source src="./static/videos/teaser.mp4"
-                type="video/mp4">
-      </video>
-      <h2 class="subtitle has-text-centered">
-        <span class="dnerf">Nerfies</span> turns selfie videos from your phone into
-        free-viewpoint
-        portraits.
+      <img src="./static/images/paper/teaser.png" alt="Teaser: interaction motions retargeted to characters with various shapes">
+      <h2 class="subtitle has-text-centered" style="margin-top: 1rem;">
+        Our method retargets the interaction motions of two characters to characters with
+        various shapes, <b>preserving the semantics of the source motions</b> such as
+        contacts and spatial relationships.
       </h2>
     </div>
   </div>
-</section> -->
+</section>
 
-
-<!-- <section class="hero is-light is-small">
-  <div class="hero-body">
-    <div class="container">
-      <div id="results-carousel" class="carousel results-carousel">
-        <div class="item item-steve">
-          <video poster="" id="steve" autoplay controls muted loop playsinline height="100%">
-            <source src="./static/videos/steve.mp4"
-                    type="video/mp4">
-          </video>
-        </div>
-        <div class="item item-chair-tp">
-          <video poster="" id="chair-tp" autoplay controls muted loop playsinline height="100%">
-            <source src="./static/videos/chair-tp.mp4"
-                    type="video/mp4">
-          </video>
-        </div>
-        <div class="item item-shiba">
-          <video poster="" id="shiba" autoplay controls muted loop playsinline height="100%">
-            <source src="./static/videos/shiba.mp4"
-                    type="video/mp4">
-          </video>
-        </div>
-        <div class="item item-fullbody">
-          <video poster="" id="fullbody" autoplay controls muted loop playsinline height="100%">
-            <source src="./static/videos/fullbody.mp4"
-                    type="video/mp4">
-          </video>
-        </div>
-        <div class="item item-blueshirt">
-          <video poster="" id="blueshirt" autoplay controls muted loop playsinline height="100%">
-            <source src="./static/videos/blueshirt.mp4"
-                    type="video/mp4">
-          </video>
-        </div>
-        <div class="item item-mask">
-          <video poster="" id="mask" autoplay controls muted loop playsinline height="100%">
-            <source src="./static/videos/mask.mp4"
-                    type="video/mp4">
-          </video>
-        </div>
-        <div class="item item-coffee">
-          <video poster="" id="coffee" autoplay controls muted loop playsinline height="100%">
-            <source src="./static/videos/coffee.mp4"
-                    type="video/mp4">
-          </video>
-        </div>
-        <div class="item item-toby">
-          <video poster="" id="toby" autoplay controls muted loop playsinline height="100%">
-            <source src="./static/videos/toby2.mp4"
-                    type="video/mp4">
-          </video>
-        </div>
-      </div>
-    </div>
-  </div>
-</section> -->
-
-
+<!-- ==================== Abstract ==================== -->
 <section class="section">
   <div class="container is-max-desktop">
-    <!-- Abstract. -->
     <div class="columns is-centered has-text-centered">
       <div class="column is-four-fifths">
         <h2 class="title is-3">Abstract</h2>
         <div class="content has-text-justified">
           <p>
-            Interactive motion between multiple characters is widely utilized in games and movies. 
-            However, the method for generating interactive motions considering the character's diverse mesh shape has yet to be studied. 
-            We propose a novel method for geometry-aware motion retargeting for two-character interaction.
+            Interactive motion between multiple characters is widely utilized in games and movies.
+            However, the method for generating interactive motions considering the character's diverse mesh shape has yet to be studied.
+            We propose a <b>Spatio Cooperative Transformer (SCT)</b> to retarget the interacting motions of
+            two characters having arbitrary mesh connectivity.
+            SCT predicts the residual of root position and joint rotations considering the shape difference
+            between the source and target of interacting characters.
           </p>
           <p>
-            A Spatio Cooperative Transformer (SCT) is to retarget the interacting motions of two characters having arbitrary mesh connectivity. 
-            An anchor loss function for SCT is to maintain the geometric distance between the interacting characters when they are retargeted. 
-            A motion augmentation method with deformation-based adaptation is to prepare a source-target paired dataset with an identical mesh connectivity for training. 
+            In addition, we introduce an <b>anchor loss</b> function for SCT to maintain the geometric distance
+            between the interacting characters when they are retargeted.
+            We also propose a <b>motion augmentation method with deformation-based adaptation</b> to prepare a
+            source-target paired dataset with an identical mesh connectivity for training.
+          </p>
+          <p>
+            In experiments, our method achieved higher accuracy for semantic preservation and produced
+            less artifacts of inter-penetration between the interacting characters for unseen characters
+            and motions than the baselines. Moreover, we conducted a user evaluation using characters with
+            various shapes, spanning low-to-high interaction levels to prove better semantic preservation
+            of our method compared to previous studies.
           </p>
         </div>
       </div>
     </div>
-    <!--/ Abstract. -->
+  </div>
+</section>
 
-    <!-- Paper video. -->
+<!-- ==================== Video ==================== -->
+<section class="section section-light">
+  <div class="container is-max-desktop">
     <div class="columns is-centered has-text-centered">
       <div class="column is-four-fifths">
         <h2 class="title is-3">Video</h2>
         <div class="publication-video">
-          <iframe 
-          width="100%" 
-          height="315" 
+          <iframe
+          width="100%"
+          height="315"
           src="https://www.youtube.com/embed/Igl9ghJEVG8"
-          title="YouTube video player" 
-          frameborder="0" 
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+          title="YouTube video player"
+          frameborder="0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowfullscreen>
           </iframe>
         </div>
       </div>
     </div>
-    <!--/ Paper video. -->
-    <!-- https://www.youtube.com/watch?v=Igl9ghJEVG8 -->
   </div>
 </section>
 
+<!-- ==================== Method Overview ==================== -->
+<section class="section">
+  <div class="container is-max-desktop">
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-full method-figure">
+        <h2 class="title is-3">Method Overview</h2>
+        <img src="./static/images/paper/overview.png" alt="Overview of the method: data augmentation, training, and inference stages">
+        <p class="figure-caption has-text-justified">
+          <b>Overview of our method.</b> In the <b>data augmentation</b> stage (a), we prepare paired data using characters
+          with the identical mesh connectivity, where orange points on the SMPL model represent the descriptors.
+          In the <b>training</b> stage (b), SCT is trained using the prepared data in a supervised manner.
+          In the <b>inference</b> stage (c), retargeting is performed on characters with different mesh connectivities.
+          Red points on the characters represent the anchor points.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
 
+<!-- ==================== Anchor ==================== -->
+<section class="section section-light">
+  <div class="container is-max-desktop">
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths">
+        <h2 class="title is-3">Anchor: A Mesh-Agnostic Interaction Representation</h2>
+      </div>
+    </div>
+    <div class="columns is-centered">
+      <div class="column is-half method-figure has-text-centered">
+        <img src="./static/images/paper/anchor.png" alt="Anchor positions (red points) automatically extracted on a stylized character">
+        <p class="figure-caption">
+          Anchor positions (red points) are automatically extracted per joint for characters
+          with diverse mesh connectivities and body shapes.
+        </p>
+      </div>
+      <div class="column is-half">
+        <div class="content has-text-justified">
+          <p>
+            An <b>anchor</b> is a sparse and representative set of vertices on the surface of the
+            character's mesh, specified for each joint. Because the anchors are located at representative
+            body parts, the distance between two anchors from two different joints represents the
+            <b>geometric distance</b> between those joints — regardless of the underlying mesh connectivity.
+          </p>
+          <p>
+            Unlike prior approaches that rely on manually pre-specified markers on the body surface,
+            our method <b>automatically identifies</b> representative anchor locations of skinned characters
+            with diverse mesh connectivities and body shapes. This automatic process leads to consistent
+            retargeting results, because the anchor positions remain semantically the same across
+            different characters, eliminating the need for each user's judgment when specifying anchors.
+          </p>
+          <p>
+            By matching the anchor distance between the interacting source characters to that between the
+            target characters, geometric semantics such as <b>contact</b> can be properly maintained,
+            preventing interpenetration and contact-missing artifacts.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Anchor loss ablation -->
+    <div class="columns is-centered" style="margin-top: 1.5rem;">
+      <div class="column is-half">
+        <div class="content has-text-justified">
+          <h3 class="title is-4">Effect of the Anchor Loss</h3>
+          <p>
+            The anchor loss minimizes the difference between the anchor distance maps of the source and
+            target characters, weighted so that <b>closer anchors exert a greater influence</b>.
+            The red point is the anchor on the hand of character A, and the blue point is the anchor
+            on the waist of character B.
+          </p>
+          <p>
+            When SCT is trained <b>with the anchor loss</b> (b), the distance between the two anchors observed in
+            the source motion is maintained, producing proper contact on the chubby target character.
+            <b>Without the anchor loss</b> (c), the hand of character A' penetrates into the belly of
+            character B'.
+          </p>
+        </div>
+      </div>
+      <div class="column is-half method-figure has-text-centered">
+        <img src="./static/images/paper/anchor_loss.png" alt="Ablation of the anchor loss: with anchor loss contacts are preserved, without it the hand penetrates the belly">
+        <p class="figure-caption">
+          Source motion (a) retargeted with the anchor loss (b) and without it (c).
+          The target character B' is presented transparently to show interpenetration.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== Dataset Augmentation ==================== -->
+<section class="section">
+  <div class="container is-max-desktop">
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths">
+        <h2 class="title is-3">Deformation-Based Motion Adaptation</h2>
+      </div>
+    </div>
+    <div class="columns is-centered">
+      <div class="column is-half">
+        <div class="content has-text-justified">
+          <p>
+            Because paired interaction data of two characters is difficult to obtain, we augment the
+            training dataset via a <b>deformation-based motion adaptation</b>.
+            Using the SMPL model as a template, we scale the bone lengths (0.7&ndash;1.2) and vary the shape
+            parameters (-10&ndash;10) to reshape the body mesh, covering a wide range of body proportions
+            from short to tall and skinny to bulky.
+          </p>
+          <p>
+            When the main character is deformed, the pose of the partner character is adjusted with a
+            relationship-descriptor method: the joint positions of the partner are updated by the weighted
+            sum of relational vectors from descriptors on the main character, so that the
+            <b>semantic context of the interaction is preserved under geometric changes</b>.
+            The resulting source-target pairs with identical mesh connectivity enable supervised training of SCT.
+          </p>
+        </div>
+      </div>
+      <div class="column is-half method-figure has-text-centered">
+        <img src="./static/images/paper/adaptation.png" alt="Deformation-based adaptation adjusts the partner pose according to the change of the main character's shape">
+        <p class="figure-caption">
+          Deformation-based adaptation adjusts the target pose according to the change of shape:
+          the difference of descriptor positions on the belly of the source and target characters
+          affects the position of the partner character's joint.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== SCT Architecture ==================== -->
+<section class="section section-light">
+  <div class="container is-max-desktop">
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-full method-figure">
+        <h2 class="title is-3">Spatio Cooperative Transformer</h2>
+        <img src="./static/images/paper/architecture.png" alt="Architecture of the Spatio Cooperative Transformer and its attention modules">
+        <p class="figure-caption has-text-justified">
+          SCT consists of <b>two symmetric branches</b> of transformer-based networks cooperating to predict
+          the motion residual for each character. Each joint state — bone offset, bounding-box size,
+          joint rotation, and root-relative position — is embedded as a token. A <b>self-attention module</b>
+          extracts the spatial feature of each character's own pose, and a <b>cross-attention module</b> exchanges
+          features between the two interacting characters, so that the predicted root position and joint
+          rotations account for both characters' shapes. At inference, SCT generalizes to characters with
+          different mesh connectivities.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== Comparison with Baselines ==================== -->
+<section class="section">
+  <div class="container is-max-desktop">
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-full">
+        <h2 class="title is-3">Comparison with Baselines</h2>
+        <div class="content has-text-justified">
+          <p>
+            We compare SCT against Copy, NKN, PMnet, and R2ET on simple interactions
+            (greeting, hand-shaking, punching) and complex interactions (salsa dance, lift-pushup, kick-back).
+            Because SCT recognizes the bone offsets and mesh shapes of <b>both</b> target characters,
+            it preserves the interaction semantics, whereas the baselines perform retargeting on each
+            character independently, leading to improper interactions.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div id="comparison-carousel" class="results-carousel">
+      <div class="item comparison-item">
+        <img src="./static/images/paper/comp_simple.png" alt="Simple motions retargeted by Copy, NKN, PMnet, R2ET, and ours">
+        <p class="figure-caption">
+          <b>Simple interactions.</b> For a rapper-style greeting motion, our method makes the tall character
+          bend his knee and lower his arm while the short character raises her arm higher to reach the
+          partner's hand. The retargeted motions of the baselines hardly preserve the interaction semantics.
+        </p>
+      </div>
+      <div class="item comparison-item">
+        <img src="./static/images/paper/comp_complex.png" alt="Complex dance motion retargeted to short, chubby, and big characters">
+        <p class="figure-caption">
+          <b>Complex interactions.</b> A salsa dance motion is retargeted to short, chubby, and big characters
+          (top: front view, bottom: back view). The partner's hand is located properly on the waist, and the
+          leaning character adjusts its posture to avoid collision with the enlarged body of the partner.
+        </p>
+      </div>
+      <div class="item comparison-item">
+        <img src="./static/images/paper/comp_chubby.png" alt="Complex dance motion retargeted to a chubby character by the baselines and ours">
+        <p class="figure-caption">
+          <b>Retargeting to a chubby character.</b> In contrast to the baseline methods that result in
+          overlapping bodies, the interaction motions of the two characters retargeted by SCT do not overlap,
+          while the contact on the waist (red circle) is preserved.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== Quantitative Results ==================== -->
+<section class="section section-light">
+  <div class="container is-max-desktop">
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths">
+        <h2 class="title is-3">Quantitative Results</h2>
+        <div class="content has-text-justified">
+          <p>
+            We measure <b>semantic preservation</b> (joint-wise and anchor-wise distances to the source semantics;
+            lower is better) and <b>artifact avoidance</b> (precision / recall / accuracy of contact preservation;
+            higher is better). Our method achieves the best contact accuracy of <b>0.894</b>, showing that the
+            retargeted motion both preserves the contacts observed in the source motions and avoids
+            unnecessary contacts.
+          </p>
+        </div>
+        <div class="table-container">
+          <table class="table is-bordered is-striped is-fullwidth metric-table">
+            <thead>
+              <tr>
+                <th rowspan="2">Method</th>
+                <th colspan="2">Semantic preservation</th>
+                <th colspan="3">Artifact avoidance</th>
+              </tr>
+              <tr>
+                <th>Skeletal &darr;</th>
+                <th>Anchor &darr;</th>
+                <th>Precision &uarr;</th>
+                <th>Recall &uarr;</th>
+                <th>Accuracy &uarr;</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><b>SCT (ours)</b></td>
+                <td><u>0.036</u></td><td>0.313</td>
+                <td><b>0.452</b></td><td><u>0.976</u></td><td><b>0.894</b></td>
+              </tr>
+              <tr>
+                <td>R2ET</td>
+                <td>0.102</td><td>0.685</td>
+                <td>0.203</td><td>0.949</td><td>0.619</td>
+              </tr>
+              <tr>
+                <td>PMnet</td>
+                <td>0.236</td><td>1.037</td>
+                <td>0.172</td><td><b>0.980</b></td><td>0.602</td>
+              </tr>
+              <tr>
+                <td>NKN</td>
+                <td>0.230</td><td>1.027</td>
+                <td>0.216</td><td>0.925</td><td>0.624</td>
+              </tr>
+              <tr>
+                <td>Copy</td>
+                <td>0.037</td><td>0.354</td>
+                <td>0.348</td><td>0.963</td><td>0.750</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="figure-caption has-text-justified">
+          Quantitative comparison with baselines for interaction motions.
+          <b>Bold</b> indicates the best value and <u>underline</u> indicates the second-best value.
+        </p>
+
+        <div class="content has-text-justified" style="margin-top: 2rem;">
+          <h3 class="title is-4">User Study</h3>
+          <p>
+            We recruited 20 participants (including 3 expert animation artists) to evaluate 10 motion
+            sequences for 5 characters on a 5-point Likert scale. The retargeted motions of SCT were the
+            most preferred in both criteria: <b>semantic preservation</b> (4.35 by experts, 4.43 by non-experts)
+            and <b>artifact avoidance</b> (4.24 by experts, 4.33 by non-experts), outperforming R2ET, PMnet,
+            NKN, and Copy by a large margin.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== Comparison with AuraMesh ==================== -->
+<section class="section">
+  <div class="container is-max-desktop">
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths method-figure">
+        <h2 class="title is-3">Comparison with AuraMesh</h2>
+        <img src="./static/images/paper/comp_auramesh.png" alt="Comparison of motions retargeted by our method and AuraMesh">
+        <p class="figure-caption has-text-justified">
+          Compared with AuraMesh, an optimization-based approach for two-character retargeting,
+          our method does not suffer from jittering and produces the intended contact properly
+          (red circles indicate contact-missing artifacts of AuraMesh). Moreover, our method is
+          approximately <b>588&times; faster</b> for simple motions and <b>764&times; faster</b> for complex motions,
+          since it requires no frame-by-frame collision-detection optimization &mdash; enabling real-time
+          applications such as live motion capture and games.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== Robustness ==================== -->
+<section class="section section-light">
+  <div class="container is-max-desktop">
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-full method-figure">
+        <h2 class="title is-3">Retargeting under Extreme Deformation</h2>
+        <div class="content has-text-justified">
+          <p>
+            We investigate the extent of acceptable deformation of the target character by varying the
+            <b>height</b> (scales 0.5&ndash;1.4) and the <b>volume</b> (skinny 0.6 to bulky 1.4) of the character,
+            beyond the trained range (0.7&ndash;1.2). Contact points of interaction are preserved when
+            the retargeting is performed within the trained range, and degrade gracefully outside of it
+            (red circles).
+          </p>
+        </div>
+        <img src="./static/images/paper/deform_height.png" alt="Retargeted motions when the target character becomes extremely short or tall" style="margin-bottom: 0.5rem;">
+        <p class="figure-caption">
+          (a) The target main character (red) changes from the normal character to an extremely short or tall character.
+        </p>
+        <img src="./static/images/paper/deform_volume.png" alt="Retargeted motions when the target character becomes extremely skinny or bulky" style="margin-top: 1.5rem; margin-bottom: 0.5rem;">
+        <p class="figure-caption">
+          (b) The target main character (red) changes from the normal character to an extremely skinny or bulky character.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== BibTeX ==================== -->
 <section class="section" id="BibTeX">
   <div class="container is-max-desktop content">
     <h2 class="title">BibTeX</h2>
-    <pre><code>
-      @article{10.1145/3687962,
-      author = {Jang, Inseo and Choi, Soojin and Hong, Seokhyeon and Kim, Chaelin and Noh, Junyong},
-      title = {Geometry-Aware Retargeting for Two-Skinned Characters Interaction},
-      year = {2024},
-      issue_date = {December 2024},
-      publisher = {Association for Computing Machinery},
-      address = {New York, NY, USA},
-      volume = {43},
-      number = {6},
-      issn = {0730-0301},
-      url = {https://doi.org/10.1145/3687962},
-      doi = {10.1145/3687962},
-      abstract = {Interactive motion between multiple characters is widely utilized in games and movies. However, the method for generating interactive motions considering the character's diverse mesh shape has yet to be studied. We propose a Spatio Cooperative Transformer (SCT) to retarget the interacting motions of two characters having arbitrary mesh connectivity. SCT predicts the residual of root position and joint rotations considering the shape difference between the source and target of interacting characters. In addition, we introduce an anchor loss function for SCT to maintain the geometric distance between the interacting characters when they are retargeted. We also propose a motion augmentation method with deformation-based adaptation to prepare a source-target paired dataset with an identical mesh connectivity for training. In experiments, our method achieved higher accuracy for semantic preservation and produced less artifacts of inter-penetration between the interacting characters for unseen characters and motions than the baselines. Moreover, we conducted a user evaluation using characters with various shapes, spanning low-to-high interaction levels to prove better semantic preservation of our method compared to previous studies.},
-      journal = {ACM Trans. Graph.},
-      month = nov,
-      articleno = {203},
-      numpages = {17},
-      keywords = {character animation, motion retargeting, two character interaction}
-      }
-<!--       @article{jang2024,
-  author    = {Jang, Inseo and Choi, Soojin and Hong, Seokhyeon and Kim, Chaelin and Noh, Junyong},
-  title     = {Geometry-aware Retargeting for Two-Skinned Character Interaction},
-  doi       = {10.1145/3687962}, 
-  journal   = {ACM Trans. Graph.},
-  year      = {2024},
-} -->
-    </code></pre>
+    <pre><code>@article{jang2024geometry,
+  author     = {Jang, Inseo and Choi, Soojin and Hong, Seokhyeon and Kim, Chaelin and Noh, Junyong},
+  title      = {Geometry-Aware Retargeting for Two-Skinned Characters Interaction},
+  year       = {2024},
+  issue_date = {December 2024},
+  publisher  = {Association for Computing Machinery},
+  address    = {New York, NY, USA},
+  volume     = {43},
+  number     = {6},
+  issn       = {0730-0301},
+  url        = {https://doi.org/10.1145/3687962},
+  doi        = {10.1145/3687962},
+  journal    = {ACM Trans. Graph.},
+  month      = nov,
+  articleno  = {203},
+  numpages   = {17},
+  keywords   = {character animation, motion retargeting, two character interaction}
+}</code></pre>
   </div>
 </section>
-<!-- https://dl.acm.org/doi/10.1145/3687962  10.1145/3687962 -->
-<!-- https://doi.org/10.1145/3687962 -->
 
 
 <footer class="footer">
   <div class="container">
     <div class="content has-text-centered">
-      <a class="icon-link" href="https://loveyourdaddy.github.io/JIS/" class="external-link" disabled>
+      <a class="icon-link" href="https://loveyourdaddy.github.io/JIS/">
         <i class="fab fa-github"></i>
       </a>
     </div>
@@ -336,11 +594,8 @@
             Commons Attribution-ShareAlike 4.0 International License</a>.
           </p>
           <p>
-            This means you are free to borrow the <a
-              href="https://github.com/nerfies/nerfies.github.io">source code</a> of this website,
-            we just ask that you link back to this page in the footer.
-            Please remember to remove the analytics code included in the header of the website which
-            you do not want on your website.
+            This page is built on the <a href="https://github.com/nerfies/nerfies.github.io">Nerfies</a>
+            website template.
           </p>
         </div>
       </div>
